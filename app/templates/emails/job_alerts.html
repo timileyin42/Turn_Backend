@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Job Opportunities for You - TURN</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .content h2 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .content p {
+            margin-bottom: 15px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .job-alert-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 15px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .jobs-container {
+            margin: 30px 0;
+        }
+        .job-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .job-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .job-title {
+            color: #2c3e50;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .job-company {
+            color: #6f42c1;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .job-location {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .job-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .job-meta-item {
+            background-color: #e9ecef;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #495057;
+            font-weight: 500;
+        }
+        .job-salary {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .job-description {
+            color: #495057;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 15px 0;
+        }
+        .job-skills {
+            margin: 15px 0;
+        }
+        .skill-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #17a2b8 0%, #20c997 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin: 3px;
+            font-weight: 500;
+        }
+        .apply-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        .apply-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(111, 66, 193, 0.3);
+        }
+        .match-score {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+        }
+        .summary-section {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 30px 0;
+            border-left: 4px solid #6f42c1;
+        }
+        .summary-section h3 {
+            color: #495057;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 15px 10px;
+            transition: all 0.3s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .preferences-link {
+            background: transparent;
+            border: 2px solid #6f42c1;
+            color: #6f42c1;
+        }
+        .footer {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .content {
+                padding: 25px 20px;
+            }
+            .header {
+                padding: 25px 15px;
+            }
+            .job-card {
+                padding: 20px 15px;
+            }
+            .job-meta {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cta-button {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 New Job Opportunities</h1>
+            <p>TURN - Project Manager Career Platform</p>
+        </div>
+        
+        <div class="content">
+            <h2>Perfect Matches for You, {{name}}!</h2>
+            
+            <div class="job-alert-badge">{{job_count}} New Opportunities</div>
+            
+            <p>Great news! We've found {{job_count}} new project management opportunities that match your skills and preferences. These positions are perfectly aligned with your experience and career goals.</p>
+            
+            <div class="summary-section">
+                <h3>📊 This Week's Job Market Insights</h3>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>{{total_new_jobs}} new positions</strong> added this week</li>
+                    <li><strong>{{avg_salary_range}}</strong> average salary range</li>
+                    <li><strong>{{top_hiring_companies}}</strong> companies are actively hiring</li>
+                    <li><strong>{{remote_percentage}}%</strong> offer remote work options</li>
+                </ul>
+            </div>
+            
+            <div class="jobs-container">
+                {{#each jobs}}
+                <div class="job-card" style="position: relative;">
+                    {{#if match_score}}
+                    <div class="match-score">{{match_score}}% Match</div>
+                    {{/if}}
+                    
+                    <div class="job-title">{{title}}</div>
+                    <div class="job-company">{{company}}</div>
+                    <div class="job-location">📍 {{location}} {{#if remote}}• Remote Available{{/if}}</div>
+                    
+                    {{#if salary}}
+                    <div class="job-salary">💰 {{salary}}</div>
+                    {{/if}}
+                    
+                    <div class="job-meta">
+                        <span class="job-meta-item">{{type}}</span>
+                        <span class="job-meta-item">{{experience_level}}</span>
+                        <span class="job-meta-item">{{department}}</span>
+                        {{#if urgency}}
+                        <span class="job-meta-item" style="background-color: #dc3545; color: white;">{{urgency}}</span>
+                        {{/if}}
+                    </div>
+                    
+                    <div class="job-description">{{description}}</div>
+                    
+                    {{#if skills}}
+                    <div class="job-skills">
+                        {{#each skills}}
+                        <span class="skill-tag">{{this}}</span>
+                        {{/each}}
+                    </div>
+                    {{/if}}
+                    
+                    <a href="{{apply_url}}" class="apply-button">View & Apply →</a>
+                </div>
+                {{/each}}
+            </div>
+            
+            <div class="cta-section">
+                <h3>🚀 Take Action Today</h3>
+                <p>Don't let these opportunities pass by! The best positions get filled quickly.</p>
+                
+                <a href="{{browse_jobs_url}}" class="cta-button">Browse All Jobs</a>
+                <a href="{{preferences_url}}" class="cta-button preferences-link">Update Preferences</a>
+            </div>
+            
+            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <h4 style="color: #155724; margin-bottom: 15px;">💡 Pro Tips for Your Applications:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Apply within 24-48 hours</strong> for the best response rates</li>
+                    <li><strong>Customize your CV</strong> for each application using our CV builder</li>
+                    <li><strong>Highlight relevant projects</strong> from your TURN portfolio</li>
+                    <li><strong>Use our AI coach</strong> to optimize your application strategy</li>
+                    <li><strong>Network with employees</strong> at these companies through TURN community</li>
+                </ul>
+            </div>
+            
+            <p><strong>Why you're seeing these opportunities:</strong></p>
+            <ul style="padding-left: 20px;">
+                <li>They match your specified skills: {{user_skills}}</li>
+                <li>They're in your preferred locations: {{preferred_locations}}</li>
+                <li>They align with your salary expectations: {{salary_range}}</li>
+                <li>They match your experience level: {{experience_level}}</li>
+            </ul>
+            
+            <p><strong>Manage Your Job Alerts:</strong></p>
+            <p>📬 <a href="{{preferences_url}}">Update your job preferences</a><br>
+            ⏰ <a href="{{frequency_url}}">Change email frequency</a><br>
+            🔕 <a href="{{unsubscribe_url}}">Unsubscribe from job alerts</a></p>
+            
+            <p style="margin-top: 30px;">Best of luck with your applications!</p>
+            <p>The TURN Career Team</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>TURN Job Alerts</strong></p>
+            <p>Connecting Project Managers with Opportunities</p>
+            <p style="font-size: 12px; opacity: 0.8; margin-top: 20px;">
+                You're receiving this because you subscribed to job alerts.<br>
+                <a href="{{unsubscribe_url}}" style="color: #ecf0f1;">Unsubscribe</a> | 
+                <a href="{{preferences_url}}" style="color: #ecf0f1;">Update Preferences</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

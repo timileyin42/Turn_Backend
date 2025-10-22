@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<!--
+  Auto-Application Confirmation Email Template
+  Note: VS Code may show CSS warnings for Jinja2 template variables (e.g., {{ confidence_score }})
+  These are false positives - the template renders correctly when processed by Jinja2.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Submitted Successfully - TURN</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .success-card {
+            background: linear-gradient(135deg, #d5f4e6 0%, #c8f7c5 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #27ae60;
+            text-align: center;
+        }
+        .job-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .company-name {
+            font-size: 20px;
+            color: #27ae60;
+            margin-bottom: 15px;
+        }
+        .application-details {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        .detail-item {
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #6c757d;
+            display: inline-block;
+            width: 140px;
+        }
+        .detail-value {
+            color: #2c3e50;
+        }
+        .ai-generated {
+            background: linear-gradient(135deg, #e8e4f3 0%, #d4edda 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #9b59b6;
+        }
+        .ai-badge {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .next-steps {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .step-item {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .step-item:before {
+            content: "▶";
+            position: absolute;
+            left: 0;
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 0 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .confidence-meter {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🚀</div>
+            <h1>Application Submitted!</h1>
+            <p>Your application has been sent successfully</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi <strong>{{ user_name }}</strong>,</p>
+            
+            <div class="success-card">
+                <div class="job-title">{{ job_title }}</div>
+                <div class="company-name">{{ company_name }}</div>
+                <p style="margin: 15px 0 5px 0; color: #2c3e50;">
+                    ✅ Your application has been successfully submitted!
+                </p>
+                <p style="margin: 0; font-size: 14px; color: #7f8c8d;">
+                    Submitted on {{ submission_date }}
+                </p>
+            </div>
+            
+            <div class="application-details">
+                <h3 style="color: #2c3e50; margin-top: 0;">📋 Application Details</h3>
+                
+                <div class="detail-item">
+                    <span class="detail-label">Match Score:</span>
+                    <span class="detail-value">{{ match_score }}%</span>
+                </div>
+                
+                {% if confidence_score %}
+                <div class="detail-item">
+                    <span class="detail-label">AI Confidence:</span>
+                    <span class="detail-value">{{ confidence_score }}%</span>
+                    <div class="confidence-meter">
+                        <div class="confidence-fill" style="{{ confidence_style }}"></div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if location %}
+                <div class="detail-item">
+                    <span class="detail-label">Location:</span>
+                    <span class="detail-value">{{ location }}</span>
+                </div>
+                {% endif %}
+                
+                {% if job_type %}
+                <div class="detail-item">
+                    <span class="detail-label">Job Type:</span>
+                    <span class="detail-value">{{ job_type }}</span>
+                </div>
+                {% endif %}
+                
+                {% if salary_range %}
+                <div class="detail-item">
+                    <span class="detail-label">Salary Range:</span>
+                    <span class="detail-value">{{ salary_range }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="detail-item" style="border-bottom: none;">
+                    <span class="detail-label">Application ID:</span>
+                    <span class="detail-value">{{ application_id }}</span>
+                </div>
+            </div>
+            
+            {% if ai_generated_content %}
+            <div class="ai-generated">
+                <div class="ai-badge">AI Generated</div>
+                <h4 style="margin: 10px 0; color: #2c3e50;">What was included in your application:</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #5a6c7d;">
+                    <li>Personalized cover letter tailored to the role</li>
+                    <li>Optimized CV highlighting relevant experience</li>
+                    <li>Key skills mapping to job requirements</li>
+                    {% if cover_letter_preview %}
+                    <li>Custom introduction showcasing your fit</li>
+                    {% endif %}
+                </ul>
+                
+                {% if cover_letter_preview %}
+                <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.7); border-radius: 8px;">
+                    <strong>Cover Letter Preview:</strong>
+                    <p style="font-style: italic; margin: 10px 0; color: #2c3e50;">
+                        "{{ cover_letter_preview }}"
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div class="next-steps">
+                <h4 style="color: #856404; margin-top: 0;">🎯 What happens next?</h4>
+                <div class="step-item">The employer will receive your application within 24 hours</div>
+                <div class="step-item">You'll be notified if they request an interview</div>
+                <div class="step-item">We'll track the application status and keep you updated</div>
+                <div class="step-item">Continue applying to increase your chances of success</div>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="{{ track_url }}" class="btn btn-primary">Track Application</a>
+                <a href="{{ dashboard_url }}" class="btn btn-secondary">View Dashboard</a>
+            </div>
+            
+            {% if similar_jobs_url %}
+            <p style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+                <strong>Keep the momentum going!</strong><br>
+                <a href="{{ similar_jobs_url }}" style="color: #3498db; text-decoration: none; font-weight: bold;">
+                    🔍 Find more jobs like this one →
+                </a>
+            </p>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>Application submitted via TURN's AI Auto-Apply system.</p>
+            <p>Questions? <a href="mailto:support@turn.com">Contact our support team</a></p>
+            <p>© 2025 TURN Platform. Accelerating your career success.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Daily Job Matches Summary - TURN</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .summary-stats {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stat-item {
+            display: inline-block;
+            margin: 0 20px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3498db;
+            display: block;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .job-item {
+            background: #ffffff;
+            border: 2px solid #ecf0f1;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+        }
+        .job-item:hover {
+            border-color: #3498db;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.1);
+        }
+        .job-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .company-name {
+            font-size: 16px;
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+        .match-score {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            display: inline-block;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .job-details {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            margin: 0 8px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .no-matches {
+            text-align: center;
+            padding: 40px 20px;
+            color: #7f8c8d;
+        }
+        .tips-section {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .tips-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        .tip-item {
+            margin: 8px 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">📊</div>
+            <h1>Your Daily Job Summary</h1>
+            <p>{{ date_range }}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi <strong>{{ user_name }}</strong>,</p>
+            
+            <p>Here's your daily summary of job matches and auto-application activity:</p>
+            
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <span class="stat-number">{{ total_matches }}</span>
+                    <div class="stat-label">New Matches</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ pending_applications }}</span>
+                    <div class="stat-label">Pending Review</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ applications_submitted }}</span>
+                    <div class="stat-label">Applications Sent</div>
+                </div>
+            </div>
+            
+            {% if new_matches %}
+            <h3 style="color: #2c3e50; margin-top: 30px;">🎯 Today's Best Matches</h3>
+            
+            {% for match in new_matches %}
+            <div class="job-item">
+                <div class="job-title">{{ match.job_title }}</div>
+                <div class="company-name">{{ match.company_name }}</div>
+                <span class="match-score">{{ match.match_score }}% Match</span>
+                
+                <div class="job-details">
+                    {% if match.location %}📍 {{ match.location }}{% endif %}
+                    {% if match.job_type %}• 💼 {{ match.job_type }}{% endif %}
+                    {% if match.salary_range %}• 💰 {{ match.salary_range }}{% endif %}
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <a href="{{ match.approve_url }}" class="btn btn-primary">Apply Now</a>
+                    <a href="{{ match.view_url }}" class="btn btn-secondary">View Details</a>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% else %}
+            <div class="no-matches">
+                <h3>🔍 No New Matches Today</h3>
+                <p>Don't worry! Our AI is continuously searching for opportunities that match your profile.</p>
+            </div>
+            {% endif %}
+            
+            {% if pending_applications > 0 %}
+            <div class="tips-section">
+                <div class="tips-title">⏰ Action Required</div>
+                <div class="tip-item">You have {{ pending_applications }} job applications waiting for your review.</div>
+                <div class="tip-item">
+                    <a href="{{ dashboard_url }}" style="color: #856404; font-weight: bold;">Review pending applications →</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if optimization_tips %}
+            <div class="tips-section">
+                <div class="tips-title">💡 Tips to Improve Your Matches</div>
+                {% for tip in optimization_tips %}
+                <div class="tip-item">• {{ tip }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="action-buttons">
+                <a href="{{ dashboard_url }}" class="btn btn-primary">View Full Dashboard</a>
+                <a href="{{ settings_url }}" class="btn btn-secondary">Manage Settings</a>
+            </div>
+            
+            {% if weekly_stats %}
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; font-size: 14px; color: #7f8c8d;">
+                <strong>This Week:</strong> 
+                {{ weekly_stats.total_matches }} matches found, 
+                {{ weekly_stats.applications_submitted }} applications submitted,
+                {{ weekly_stats.average_match_score }}% average match score
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>This summary was generated by TURN's AI job matching system.</p>
+            <p>Adjust your preferences: <a href="{{ settings_url }}">Auto-Apply Settings</a></p>
+            <p>© 2025 TURN Platform. Your career success is our priority.</p>
+        </div>
+    </div>
+</body>
+</html>

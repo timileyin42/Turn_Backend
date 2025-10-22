@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Status Update - TURN</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header-success {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        }
+        .header-pending {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+        .header-rejected {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        .header-interview {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .status-card {
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .status-success {
+            background: linear-gradient(135deg, #d5f4e6 0%, #c8f7c5 100%);
+            border-left: 5px solid #27ae60;
+        }
+        .status-pending {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-left: 5px solid #f39c12;
+        }
+        .status-rejected {
+            background: linear-gradient(135deg, #fadbd8 0%, #f5b7b1 100%);
+            border-left: 5px solid #e74c3c;
+        }
+        .status-interview {
+            background: linear-gradient(135deg, #e8e4f3 0%, #d5dbdb 100%);
+            border-left: 5px solid #9b59b6;
+        }
+        .job-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .company-name {
+            font-size: 18px;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        .status-message {
+            font-size: 16px;
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.7);
+        }
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px 0;
+        }
+        .timeline-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .timeline-icon-success { background: #27ae60; }
+        .timeline-icon-pending { background: #f39c12; }
+        .timeline-icon-rejected { background: #e74c3c; }
+        .timeline-icon-interview { background: #9b59b6; }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        .timeline-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+        .timeline-date {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 0 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .next-steps {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .step-item {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .step-item:before {
+            content: "▶";
+            position: absolute;
+            left: 0;
+            color: #3498db;
+            font-weight: bold;
+        }
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header header-{{ status_class }}">
+            <div class="icon">{{ status_icon }}</div>
+            <h1>Application Update</h1>
+            <p>{{ status_title }}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi <strong>{{ user_name }}</strong>,</p>
+            
+            <p>We have an update on your job application:</p>
+            
+            <div class="status-card status-{{ status_class }}">
+                <div class="job-title">{{ job_title }}</div>
+                <div class="company-name">{{ company_name }}</div>
+                <div class="status-message">
+                    <strong>{{ status_title }}</strong><br>
+                    {{ status_message }}
+                </div>
+                {% if application_date %}
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #7f8c8d;">
+                    Originally applied on {{ application_date }}
+                </p>
+                {% endif %}
+            </div>
+            
+            {% if timeline %}
+            <h3 style="color: #2c3e50; margin-top: 30px;">📅 Application Timeline</h3>
+            {% for event in timeline %}
+            <div class="timeline-item">
+                <div class="timeline-icon timeline-icon-{{ event.type }}">{{ event.icon }}</div>
+                <div class="timeline-content">
+                    <div class="timeline-title">{{ event.title }}</div>
+                    <div class="timeline-date">{{ event.date }}</div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            
+            {% if status == 'interview_scheduled' %}
+            <div class="highlight-box">
+                <strong>🎉 Congratulations!</strong><br>
+                You've been selected for an interview. This is a great opportunity to showcase your skills!
+                {% if interview_details %}
+                <div style="margin-top: 10px;">
+                    <strong>Interview Details:</strong><br>
+                    {{ interview_details }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if status == 'under_review' %}
+            <div class="next-steps">
+                <h4 style="color: #2c3e50; margin-top: 0;">⏳ What's happening now?</h4>
+                <div class="step-item">Your application is being reviewed by the hiring team</div>
+                <div class="step-item">They're evaluating your qualifications and experience</div>
+                <div class="step-item">You should hear back within {{ expected_response_time | default('1-2 weeks') }}</div>
+                <div class="step-item">We'll notify you as soon as there's an update</div>
+            </div>
+            {% endif %}
+            
+            {% if status == 'rejected' %}
+            <div class="next-steps">
+                <h4 style="color: #2c3e50; margin-top: 0;">💪 Keep moving forward!</h4>
+                <div class="step-item">This is just one opportunity among many</div>
+                <div class="step-item">Use this as learning experience for future applications</div>
+                <div class="step-item">Our AI will continue finding great matches for you</div>
+                <div class="step-item">Consider updating your profile based on feedback</div>
+            </div>
+            
+            {% if feedback %}
+            <div class="highlight-box">
+                <strong>📝 Feedback from employer:</strong><br>
+                {{ feedback }}
+            </div>
+            {% endif %}
+            {% endif %}
+            
+            <div class="action-buttons">
+                {% if status == 'interview_scheduled' %}
+                <a href="{{ interview_prep_url }}" class="btn btn-success">Prepare for Interview</a>
+                {% endif %}
+                
+                {% if status == 'rejected' %}
+                <a href="{{ similar_jobs_url }}" class="btn btn-primary">Find Similar Jobs</a>
+                {% endif %}
+                
+                <a href="{{ track_url }}" class="btn btn-primary">Track Application</a>
+                <a href="{{ dashboard_url }}" class="btn btn-secondary">View Dashboard</a>
+            </div>
+            
+            {% if recommendations %}
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+                <h4 style="color: #2c3e50;">💡 Recommendations</h4>
+                {% for recommendation in recommendations %}
+                <p style="margin: 8px 0; color: #5a6c7d;">• {{ recommendation }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>Application tracking powered by TURN's AI system.</p>
+            <p>Need help? <a href="mailto:support@turn.com">Contact our support team</a></p>
+            <p>© 2025 TURN Platform. Supporting your career journey.</p>
+        </div>
+    </div>
+</body>
+</html>

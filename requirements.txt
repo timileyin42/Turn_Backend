@@ -1,0 +1,95 @@
+# FastAPI and ASGI
+fastapi==0.104.1
+# ASGI Server
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# Rate Limiting
+slowapi==0.1.9
+
+# HTTP Client for API calls
+aiohttp==3.9.1
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Pydantic v2
+pydantic==2.5.0
+pydantic-settings==2.0.3
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP Client
+httpx==0.25.2
+
+# Email OTP Service (Termii)
+jinja2==3.1.2
+
+# File handling
+python-dotenv==1.0.0
+aiofiles==23.2.0
+
+# Database Migrations
+alembic==1.12.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Development
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+
+# AI and ML (for AI coaching features) - FREE ALTERNATIVES
+# openai==1.3.7  # REMOVED - PAID SERVICE
+google-generativeai==0.3.2  # Google Gemini - FREE TIER
+groq==0.4.1  # Groq - FREE TIER with Llama/Mixtral
+transformers==4.35.2  # Hugging Face - FREE
+torch==2.1.1  # PyTorch for transformers - FREE
+sentence-transformers==2.2.2  # FREE embedding models
+
+# Document generation - FREE LIBRARIES
+weasyprint==61.2  # HTML to PDF - FREE
+python-docx==1.1.0  # DOCX generation - FREE
+reportlab==4.0.7  # PDF generation - FREE
+
+# Text-to-Speech - FREE LIBRARIES
+gtts==2.4.0  # Google TTS - FREE with rate limits
+pyttsx3==2.90  # Offline TTS - COMPLETELY FREE
+edge-tts==6.1.9  # Microsoft Edge TTS - FREE
+
+# Job scraping and web
+beautifulsoup4==4.12.2
+selenium==4.15.2
+requests==2.31.0
+
+# File storage (cloud) - FREE TIER AVAILABLE
+cloudinary==1.36.0
+
+# Background tasks
+celery==5.3.4
+redis==5.0.1
+
+# External API integrations
+stripe==7.8.0
+
+# Scientific computing for ML
+numpy==1.24.3
+scikit-learn==1.3.2
+
+# Image processing
+pillow==10.1.0
+
+# Data validation and processing
+phonenumbers==8.13.25
+python-slugify==8.0.1
+
+# Logging
+structlog==23.2.0

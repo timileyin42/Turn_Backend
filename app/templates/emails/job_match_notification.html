@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Job Match Found - TURN</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .job-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #3498db;
+        }
+        .job-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .company-name {
+            font-size: 18px;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        .match-score {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .job-details {
+            margin: 15px 0;
+        }
+        .detail-item {
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #7f8c8d;
+            display: inline-block;
+            width: 120px;
+        }
+        .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 0 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-approve {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+        }
+        .btn-reject {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        .btn-view {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .footer {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .ai-badge {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🎯</div>
+            <h1>New Job Match Found!</h1>
+            <p>AI has found a great opportunity for you</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi <strong>{{ user_name }}</strong>,</p>
+            
+            <p>Great news! Our AI has found a job that matches your profile and preferences. Here are the details:</p>
+            
+            <div class="job-card">
+                <div class="job-title">{{ job_title }}</div>
+                <div class="company-name">{{ company_name }}</div>
+                <div class="match-score">{{ match_score }}% Match</div>
+                <span class="ai-badge">AI Powered</span>
+                
+                <div class="job-details">
+                    {% if location %}
+                    <div class="detail-item">
+                        <span class="detail-label">Location:</span>
+                        {{ location }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if job_type %}
+                    <div class="detail-item">
+                        <span class="detail-label">Type:</span>
+                        {{ job_type }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if salary_range %}
+                    <div class="detail-item">
+                        <span class="detail-label">Salary:</span>
+                        {{ salary_range }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if experience_level %}
+                    <div class="detail-item">
+                        <span class="detail-label">Experience:</span>
+                        {{ experience_level }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if match_reasons %}
+            <div class="highlight">
+                <strong>Why this is a great match:</strong>
+                <ul>
+                    {% for reason in match_reasons %}
+                    <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <p>Would you like me to apply for this position on your behalf? I'll create a personalized cover letter and submit your optimized CV.</p>
+            
+            <div class="action-buttons">
+                <a href="{{ approve_url }}" class="btn btn-approve">✅ Apply for This Job</a>
+                <a href="{{ reject_url }}" class="btn btn-reject">❌ Not Interested</a>
+                <a href="{{ view_url }}" class="btn btn-view">👁️ View Full Details</a>
+            </div>
+            
+            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; color: #7f8c8d; font-size: 14px;">
+                <strong>Quick Action:</strong> Reply to this email with "APPLY" to approve or "SKIP" to reject this opportunity.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>This job match was generated by TURN's AI system based on your profile and preferences.</p>
+            <p>Manage your auto-apply settings: <a href="{{ settings_url }}">Dashboard Settings</a></p>
+            <p>© 2025 TURN Platform. Helping you find your next opportunity.</p>
+        </div>
+    </div>
+</body>
+</html>
