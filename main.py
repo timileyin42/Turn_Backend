@@ -47,24 +47,15 @@ app = FastAPI(
     
     ## Authentication
     
-    This API uses JWT (JSON Web Tokens) for authentication:
+    This App uses JWT (JSON Web Tokens) for authentication:
     1. Register or login to get an access token
     2. Include the token in the Authorization header: `Bearer <token>`
-    3. Use the refresh endpoint to get new tokens when needed
-    
-    ## Database
-    
-    - **PostgreSQL** with async operations
-    - **SQLAlchemy 2.0+** with modern patterns
-    - **Pydantic v2** for validation with `from_attributes=True`
+    3. Use the refresh endpoint to get new tokens when needed    
     """,
     version="1.0.0",
     contact={
         "name": "TURN Development Team",
         "email": "support@turn-platform.com",
-    },
-    license_info={
-        "name": "MIT License",
     },
     lifespan=lifespan,
     debug=settings.debug

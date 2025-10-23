@@ -30,13 +30,13 @@ class Settings(BaseSettings):
     algorithm: str = Field(alias="ALGORITHM")
     access_token_expire_minutes: int = Field(alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     
-    # AI Services - FREE ALTERNATIVES ONLY
+    # AI Services
     # openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")  # REMOVED - PAID
     # elevenlabs_api_key: Optional[str] = Field(default=None, alias="ELEVENLABS_API_KEY")  # REMOVED - PAID
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")  # Google Gemini - FREE TIER
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")  # Groq - FREE TIER
     
-    # Email Configuration - Brevo (Free tier: 300 emails/day)
+    # Email Configuration
     brevo_api_key: Optional[str] = Field(default=None, alias="BREVO_API_KEY")
     brevo_sender_email: str = Field(alias="BREVO_SENDER_EMAIL")
     brevo_sender_name: str = Field(alias="BREVO_SENDER_NAME")
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Email verification enabled with Brevo
     email_verification_enabled: bool = Field(alias="EMAIL_VERIFICATION_ENABLED")
     
-    # File Storage - Cloudinary (Free tier: 25GB storage, 25GB bandwidth/month)
+    # File Storage
     cloudinary_cloud_name: Optional[str] = Field(default=None, alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: Optional[str] = Field(default=None, alias="CLOUDINARY_API_KEY")
     cloudinary_api_secret: Optional[str] = Field(default=None, alias="CLOUDINARY_API_SECRET")
