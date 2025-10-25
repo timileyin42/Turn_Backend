@@ -197,7 +197,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject="Welcome to TURN - Start Building Your Project Management Career! 🚀",
+                subject="Welcome to TURN - Start Building Your Project Management Career!",
                 html_content=html_content
             )
             
@@ -504,7 +504,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"🎯 {len(jobs)} New Job Opportunities Match Your Profile",
+                subject=f"{len(jobs)} New Job Opportunities Match Your Profile",
                 html_content=html_content
             )
             
@@ -571,7 +571,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"🎉 Congratulations! You've completed {course_details.get('name')}",
+                subject=f"Congratulations! You've completed {course_details.get('name')}",
                 html_content=html_content
             )
             
@@ -644,7 +644,7 @@ class EmailService:
     ) -> Dict[str, Any]:
         """Send email notification for new job match."""
         try:
-            subject = f"🎯 New Job Match: {job_title} at {company_name}"
+            subject = f"New Job Match: {job_title} at {company_name}"
             
             # Prepare template data
             template_data = {
@@ -697,7 +697,7 @@ class EmailService:
     ) -> Dict[str, Any]:
         """Send daily/weekly job match summary email."""
         try:
-            subject = f"📊 Your Job Match Summary: {total_matches} New Opportunities"
+            subject = f"Your Job Match Summary: {total_matches} New Opportunities"
             
             # Prepare template data
             template_data = {
@@ -818,7 +818,7 @@ class EmailService:
                 "rejected": {
                     "title": "� Application Update",
                     "class": "rejected",
-                    "icon": "📝"
+                    "icon": "&#128221;"  # Memo icon
                 },
                 "accepted": {
                     "title": "🎊 Job Offer Received",
@@ -826,9 +826,9 @@ class EmailService:
                     "icon": "🎊"
                 },
                 "withdrawn": {
-                    "title": "ℹ️ Application Withdrawn",
+                    "title": "Application Withdrawn",
                     "class": "pending",
-                    "icon": "ℹ️"
+                    "icon": "&#8505;"  # Info icon
                 }
             }
             

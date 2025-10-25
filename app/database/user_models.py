@@ -17,10 +17,12 @@ if TYPE_CHECKING:
 
 
 class UserRole(str, enum.Enum):
-    """User role enumeration."""
-    USER = "user"
-    MENTOR = "mentor"
-    ADMIN = "admin"
+    """User role enumeration for RBAC."""
+    USER = "user"              # Regular job seeker/learner
+    RECRUITER = "recruiter"    # Recruiter who can post jobs
+    COMPANY = "company"        # Company representative
+    MENTOR = "mentor"          # Mentor who provides guidance
+    ADMIN = "admin"            # Platform administrator
 
 
 class SkillLevel(int, enum.Enum):

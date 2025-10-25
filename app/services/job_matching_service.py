@@ -4,17 +4,28 @@ Provides intelligent job recommendations based on user skills, experience, and p
 """
 import asyncio
 import json
-import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer
+
+# Optional ML libraries - as it's not available in Python 3.13 yet
+try:
+    import numpy as np  # type: ignore
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+try:
+    from sklearn.metrics.pairwise import cosine_similarity  # type: ignore
+    from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
 
 # Free embedding libraries
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer  # type: ignore
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
@@ -31,23 +42,27 @@ class JobMatchingService:
     def __init__(self):
         """Initialize job matching service with free embedding models."""
         self.embedding_model = None
-        self.tfidf_vectorizer = TfidfVectorizer(
-            max_features=1000,
-            stop_words='english',
-            ngram_range=(1, 2)
-        )
+        self.tfidf_vectorizer = None
+        
+        # Initialize TF-IDF if sklearn available
+        if SKLEARN_AVAILABLE:
+            self.tfidf_vectorizer = TfidfVectorizer(
+                max_features=1000,
+                stop_words='english',
+                ngram_range=(1, 2)
+            )
         
         # Initialize embedding model if available
         if SENTENCE_TRANSFORMERS_AVAILABLE:
             try:
                 # Use free, lightweight models
                 self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')  # 22MB model
-                print("✅ Sentence Transformers loaded successfully")
+                print("Sentence Transformers loaded successfully")
             except Exception as e:
-                print(f"⚠️ Could not load sentence transformers: {e}")
+                print(f"WARNING: Could not load sentence transformers: {e}")
                 self.embedding_model = None
         else:
-            print("⚠️ Sentence Transformers not available. Using TF-IDF fallback.")
+            print("WARNING: Sentence Transformers not available. Using basic matching.")
     
     async def get_user_profile_text(self, db: AsyncSession, user_id: int) -> str:
         """Generate comprehensive user profile text for matching."""
@@ -164,7 +179,7 @@ class JobMatchingService:
             return job_scores
             
         except Exception as e:
-            print(f"⚠️ Error in embedding similarity: {e}")
+            print(f"WARNING: Error in embedding similarity: {e}")
             return []
     
     async def calculate_job_similarity_tfidf(
@@ -204,7 +219,7 @@ class JobMatchingService:
             return job_scores
             
         except Exception as e:
-            print(f"⚠️ Error in TF-IDF similarity: {e}")
+            print(f"WARNING: Error in TF-IDF similarity: {e}")
             return []
     
     async def get_job_recommendations(
@@ -272,22 +287,22 @@ class JobMatchingService:
         if score > 0.7:
             reasons.append("🔥 Excellent match for your profile")
         elif score > 0.5:
-            reasons.append("✅ Good match for your skills")
+            reasons.append("Good match for your skills")
         elif score > 0.3:
             reasons.append("⚡ Potential match worth considering")
         else:
-            reasons.append("💡 Basic match - might be a stretch opportunity")
+            reasons.append("Basic match - might be a stretch opportunity")
         
         if common_skills:
             top_skills = list(common_skills)[:3]
-            reasons.append(f"🎯 Matches your skills: {', '.join(top_skills)}")
+            reasons.append(f"Matches your skills: {', '.join(top_skills)}")
         
         # Check job level based on experience keywords
         if any(word in job_text for word in ['senior', 'lead', 'principal', 'manager']):
             if any(word in user_profile.lower() for word in ['senior', 'lead', 'manager', 'years']):
                 reasons.append("📈 Senior-level position matching your experience")
             else:
-                reasons.append("🚀 Growth opportunity - senior position")
+                reasons.append("Growth opportunity - senior position")
         
         # Remote work preference
         if 'remote' in job_text and score > 0.4:

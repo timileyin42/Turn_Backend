@@ -1,12 +1,19 @@
 """
 Database configuration and session management using SQLAlchemy 2.0+.
 """
+import logging
 from typing import AsyncGenerator
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.engine import Engine
+from time import time
 
 from app.core.config import settings
+
+# Configure database logger
+db_logger = logging.getLogger("sqlalchemy.engine")
+db_logger.setLevel(logging.INFO if settings.debug else logging.WARNING)
 
 
 # SQLAlchemy 2.0+ declarative base
@@ -28,7 +35,8 @@ class Base(DeclarativeBase):
 # Async engine for main application with enhanced connection pooling
 async_engine = create_async_engine(
     settings.database_url,
-    echo=settings.debug,
+    echo=settings.debug,  # Enable SQL echo in debug mode
+    echo_pool=settings.debug,  # Show connection pool operations
     future=True,
     pool_pre_ping=True,
     pool_recycle=300,  # Recycle connections after 5 minutes
@@ -44,7 +52,8 @@ async_engine = create_async_engine(
 # Sync engine for Alembic migrations with connection pooling
 sync_engine = create_engine(
     settings.database_url_sync,
-    echo=settings.debug,
+    echo=settings.debug,  # Enable SQL echo in debug mode
+    echo_pool=settings.debug,  # Show connection pool operations
     future=True,
     pool_pre_ping=True,
     pool_recycle=300,
@@ -52,6 +61,29 @@ sync_engine = create_engine(
     max_overflow=10,
     pool_timeout=30,
 )
+
+
+# Query execution time tracking (for sync engine)
+@event.listens_for(Engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    """Log query start time."""
+    if settings.debug:
+        conn.info.setdefault('query_start_time', []).append(time())
+        db_logger.info("=" * 80)
+        db_logger.info(" EXECUTING SQL QUERY:")
+        db_logger.info(f"Statement: {statement}")
+        if parameters:
+            db_logger.info(f"Parameters: {parameters}")
+
+
+@event.listens_for(Engine, "after_cursor_execute")
+def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    """Log query execution time."""
+    if settings.debug:
+        total_time = time() - conn.info['query_start_time'].pop(-1)
+        db_logger.info(f" Query completed in {total_time:.4f} seconds")
+        db_logger.info(f"Rows affected/returned: {cursor.rowcount}")
+        db_logger.info("=" * 80)
 
 # Async session factory
 AsyncSessionLocal = async_sessionmaker(

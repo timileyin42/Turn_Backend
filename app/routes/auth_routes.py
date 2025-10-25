@@ -2,6 +2,7 @@
 Authentication routes for user registration, login, and token management.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
@@ -47,16 +48,75 @@ async def register(
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="User login",
-    description="Authenticate user and return JWT access and refresh tokens"
+    summary="User login (OAuth2 Password Flow)",
+    description="""
+    Authenticate user and return JWT access and refresh tokens.
+    
+    **For Swagger UI:** Click "Authorize" button and enter:
+    - Username: Your email address
+    - Password: Your password
+    
+    **For API clients:** Send POST request with form data:
+    - username (email or username)
+    - password
+    
+    **Response:** JWT tokens for subsequent authenticated requests
+    
+    **Roles:**
+    - user: Regular job seeker (default)
+    - recruiter: Can post jobs
+    - company: Company representative
+    - mentor: Provides mentorship
+    - admin: Platform administrator
+    """
 )
 @limiter.limit(RateLimitTiers.AUTH_LOGIN)
 async def login(
     request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Authenticate user using OAuth2 password flow.
+    Compatible with Swagger UI authorization and API clients.
+    """
+    try:
+        # Convert OAuth2 form to LoginRequest
+        login_data = LoginRequest(
+            username=form_data.username,  # Can be email or username
+            password=form_data.password
+        )
+        
+        return await auth_service.login_user(db, login_data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
+
+
+@router.post(
+    "/login-json",
+    response_model=TokenResponse,
+    summary="User login (JSON format)",
+    description="""
+    Alternative login endpoint that accepts JSON instead of form data.
+    Use this if you prefer JSON over OAuth2 password flow.
+    """
+)
+@limiter.limit(RateLimitTiers.AUTH_LOGIN)
+async def login_json(
+    request: Request,
     login_data: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Authenticate user and return JWT tokens."""
+    """Authenticate user using JSON request body."""
     try:
         return await auth_service.login_user(db, login_data)
     except ValueError as e:

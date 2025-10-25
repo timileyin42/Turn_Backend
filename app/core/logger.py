@@ -24,6 +24,20 @@ def configure_logging() -> FilteringBoundLogger:
         stream=sys.stdout,
         level=logging.DEBUG if settings.debug else logging.INFO,
     )
+    
+    # Set SQLAlchemy logging to show SQL queries
+    if settings.debug:
+        # Show SQL queries
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+        # Show SQL query results
+        logging.getLogger('sqlalchemy.pool').setLevel(logging.DEBUG)
+        # Show SQL transaction logs
+        logging.getLogger('sqlalchemy.dialects').setLevel(logging.INFO)
+        
+        print("\n SQLAlchemy Logging Enabled:")
+        print("   - sqlalchemy.engine: SQL queries and execution")
+        print("   - sqlalchemy.pool: Connection pool events")
+        print("   - sqlalchemy.dialects: Dialect-specific operations")
 
     # Configure structlog
     structlog.configure(
