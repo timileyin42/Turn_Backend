@@ -1,6 +1,6 @@
 """
-Free Text-to-Speech Service for TURN Platform
-Supports multiple FREE TTS providers: gTTS, pyttsx3, and edge-tts
+Text-to-Speech Service for TURN Platform
+Supports multiple TTS providers: gTTS, pyttsx3, and edge-tts
 """
 import os
 import asyncio
@@ -31,14 +31,14 @@ from app.core.config import settings
 
 class TTSProvider(Enum):
     """Available TTS providers."""
-    GTTS = "gtts"          # Google TTS (free with internet)
-    PYTTSX3 = "pyttsx3"    # Offline TTS (completely free)
-    EDGE_TTS = "edge_tts"  # Microsoft Edge TTS (free)
+    GTTS = "gtts"  
+    PYTTSX3 = "pyttsx3"    
+    EDGE_TTS = "edge_tts"  
 
 
 class TTSService:
     """
-    Free Text-to-Speech service using multiple providers.
+    Text-to-Speech service using multiple providers.
     Automatically falls back to available providers.
     """
     

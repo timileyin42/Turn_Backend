@@ -332,9 +332,68 @@ class CompanyWebsiteScanner:
             If no clear jobs found, return empty array [].
             """
             
-            # This would use AI service - for now return empty
-            # In production, you'd call ai_service here
-            return [], []
+            # Use AI service to parse job listings
+            ai_response = await ai_service.generate_response(
+                prompt=prompt,
+                context="Extract structured job listings from unstructured careers page content",
+                coaching_type=AICoachingType.GENERAL
+            )
+            
+            if not ai_response or not ai_response.get('success'):
+                self.logger.warning(f"AI service failed to parse jobs for {company_name}")
+                return [], []
+            
+            # Parse AI response
+            response_text = ai_response.get('response', '[]')
+            
+            # Try to extract JSON from response (handle cases where AI adds explanation)
+            try:
+                # Look for JSON array in response
+                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                if json_match:
+                    jobs_data = json.loads(json_match.group(0))
+                else:
+                    jobs_data = json.loads(response_text)
+                
+                if not isinstance(jobs_data, list):
+                    return [], []
+                
+                # Process parsed jobs
+                all_jobs = []
+                entry_level_jobs = []
+                
+                for job in jobs_data:
+                    if not isinstance(job, dict) or 'title' not in job:
+                        continue
+                    
+                    job_entry = {
+                        'title': job.get('title', 'Unknown Position'),
+                        'company': company_name,
+                        'location': job.get('location', 'Not specified'),
+                        'description': job.get('description', ''),
+                        'url': '',  # Will be set by caller
+                        'source': 'company_website_ai_parsed',
+                        'posted_date': datetime.utcnow().isoformat(),
+                        'scraped_at': datetime.utcnow().isoformat()
+                    }
+                    
+                    all_jobs.append(job_entry)
+                    
+                    # Check if marked as entry-level or matches entry-level criteria
+                    if job.get('is_entry_level') or self._is_entry_level_job(job_entry):
+                        entry_level_jobs.append(job_entry)
+                
+                self.logger.info(
+                    f"AI parsed {len(all_jobs)} jobs for {company_name}, "
+                    f"{len(entry_level_jobs)} entry-level"
+                )
+                
+                return all_jobs, entry_level_jobs
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse AI response as JSON: {str(e)}")
+                self.logger.debug(f"AI response was: {response_text[:200]}")
+                return [], []
             
         except Exception as e:
             self.logger.error(f"Error in AI job parsing: {str(e)}")

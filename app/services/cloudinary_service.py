@@ -1,6 +1,5 @@
 """
-Cloudinary Storage Service with FREE tier support.
-FREE: 25GB storage, 25GB bandwidth, 25,000 transformations per month.
+Cloudinary Storage Service  support.
 """
 import os
 import uuid
@@ -22,7 +21,7 @@ from app.core.config import settings
 
 
 class CloudinaryService:
-    """Free Cloudinary storage service for file uploads and management."""
+    """ Cloudinary storage service for file uploads and management."""
     
     def __init__(self):
         """Initialize Cloudinary service."""

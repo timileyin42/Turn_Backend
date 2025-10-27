@@ -23,7 +23,7 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
 
-# Free embedding libraries
+#embedding libraries
 try:
     from sentence_transformers import SentenceTransformer  # type: ignore
     SENTENCE_TRANSFORMERS_AVAILABLE = True

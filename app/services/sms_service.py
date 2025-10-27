@@ -13,7 +13,7 @@ class TermiiSMSProvider:
     def __init__(self):
         self.api_key = settings.termii_api_key
         self.sender_id = settings.termii_sender_id
-        self.base_url = "https://api.ng.termii.com/api"
+        self.base_url = settings.termii_base_url
     
     async def send_sms(self, phone_number: str, message: str) -> Dict[str, Any]:
         """Send SMS using Termii API."""
