@@ -21,12 +21,12 @@ try:
 except ImportError:
     Groq = None
 
-try:
-    from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-    import torch
-except ImportError:
-    pipeline = None
-    torch = None
+# Lazy imports for heavy ML libraries - only import when actually needed
+# This prevents slow startup times
+pipeline = None
+torch = None
+AutoTokenizer = None
+AutoModelForCausalLM = None
 
 from app.core.config import settings
 
@@ -92,19 +92,22 @@ class AIService:
             except Exception as e:
                 self.logger.warning(f"Failed to initialize Groq: {e}")
                 
-        # Hugging Face (Free with rate limits)
-        if pipeline and torch:
-            try:
-                # Use smaller model for free hosting
-                self.providers[AIProvider.HUGGINGFACE] = pipeline(
-                    "text-generation",
-                    model="microsoft/DialoGPT-medium",
-                    tokenizer="microsoft/DialoGPT-medium",
-                    device=0 if torch.cuda.is_available() else -1
-                )
-                self.logger.info("Hugging Face model initialized successfully")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize Hugging Face: {e}")
+        # Hugging Face (Free with rate limits) - Lazy import to avoid slow startup
+        try:
+            from transformers import pipeline as hf_pipeline
+            import torch
+            # Use smaller model for free hosting
+            self.providers[AIProvider.HUGGINGFACE] = hf_pipeline(
+                "text-generation",
+                model="microsoft/DialoGPT-medium",
+                tokenizer="microsoft/DialoGPT-medium",
+                device=0 if torch.cuda.is_available() else -1
+            )
+            self.logger.info("Hugging Face model initialized successfully")
+        except ImportError:
+            self.logger.debug("Transformers/torch not installed - Hugging Face provider unavailable")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize Hugging Face: {e}")
         
         if not self.providers:
             self.logger.warning("No AI providers available. Check API keys and dependencies.")

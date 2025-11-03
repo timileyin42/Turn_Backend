@@ -3,6 +3,7 @@ TURN - Project Manager Career Platform
 FastAPI main application with PostgreSQL backend.
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -60,6 +61,50 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.debug
 )
+
+
+def custom_openapi():
+    """Provide a custom OpenAPI schema that sets OAuth2 password flow as the primary security scheme.
+
+    This ensures Swagger's Authorize modal shows username/password (password flow) instead of the
+    HTTP Bearer input box.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=settings.app_name,
+        version="1.0.0",
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Ensure components exists
+    components = openapi_schema.setdefault("components", {})
+
+    # Define OAuth2 Password flow as the primary security scheme
+    components["securitySchemes"] = {
+        "OAuth2Password": {
+            "type": "oauth2",
+            "flows": {
+                "password": {
+                    "tokenUrl": "/api/v1/auth/login",
+                    "scopes": {}
+                }
+            },
+            "description": "OAuth2 Password Flow - enter email as username and your password"
+        }
+    }
+
+    # Set global security to use OAuth2Password only
+    openapi_schema["security"] = [{"OAuth2Password": []}]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+# Attach custom OpenAPI generator so Swagger UI will use OAuth2 password flow
+app.openapi = custom_openapi
 
 # Add rate limiter
 app.state.limiter = limiter

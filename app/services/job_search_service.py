@@ -15,15 +15,13 @@ from app.core.config import settings
 class RemoteOKAPI:
     """Integration with RemoteOK job board API."""
     
-    BASE_URL = "https://remoteok.io/api"
-    
     @staticmethod
     async def fetch_pm_jobs() -> List[Dict[str, Any]]:
         """Fetch project management jobs from RemoteOK."""
         async with aiohttp.ClientSession() as session:
             try:
                 headers = {'User-Agent': 'Turn-Platform-Job-Search/1.0'}
-                async with session.get(f"{RemoteOKAPI.BASE_URL}", headers=headers) as response:
+                async with session.get(settings.remoteok_api_url, headers=headers) as response:
                     if response.status == 200:
                         jobs = await response.json()
                         # Filter for PM jobs
@@ -44,8 +42,6 @@ class RemoteOKAPI:
 class RemotiveAPI:
     """Integration with Remotive job board API."""
     
-    BASE_URL = "https://remotive.io/api/remote-jobs"
-    
     @staticmethod
     async def fetch_pm_jobs() -> List[Dict[str, Any]]:
         """Fetch project management jobs from Remotive."""
@@ -55,7 +51,7 @@ class RemotiveAPI:
                     'category': 'project-management',
                     'limit': 50
                 }
-                async with session.get(RemotiveAPI.BASE_URL, params=params) as response:
+                async with session.get(settings.remotive_api_url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('jobs', [])
@@ -67,8 +63,6 @@ class RemotiveAPI:
 
 class GitHubJobsAPI:
     """Integration with GitHub Jobs API (via third-party)."""
-    
-    BASE_URL = "https://api.github.com/search/repositories"
     
     @staticmethod
     async def fetch_pm_jobs() -> List[Dict[str, Any]]:
@@ -82,7 +76,7 @@ class GitHubJobsAPI:
                     'order': 'desc',
                     'per_page': 20
                 }
-                async with session.get(GitHubJobsAPI.BASE_URL, params=params) as response:
+                async with session.get(settings.github_api_url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         # Transform repository data into job-like format
@@ -109,8 +103,6 @@ class GitHubJobsAPI:
 class AngelListAPI:
     """Integration with AngelList/Wellfound API."""
     
-    BASE_URL = "https://api.angel.co/1"
-    
     @staticmethod
     async def fetch_startup_pm_jobs() -> List[Dict[str, Any]]:
         """Fetch project management jobs from startups."""
@@ -119,6 +111,7 @@ class AngelListAPI:
         async with aiohttp.ClientSession() as session:
             try:
                 # This would require proper API key and authentication
+                # URL from settings: settings.angellist_api_url
                 # For now, return structured data format that would come from their API
                 return []
             except Exception as e:
@@ -150,7 +143,7 @@ class LinkedInJobsAPI:
                 }
                 
                 async with session.get(
-                    "https://linkedin-data-api.p.rapidapi.com/search-jobs",
+                    settings.linkedin_rapidapi_url,
                     headers=headers,
                     params=params
                 ) as response:
@@ -186,7 +179,7 @@ class IndeedAPI:
                 }
                 
                 async with session.get(
-                    "https://indeed12.p.rapidapi.com/jobs/search",
+                    settings.indeed_rapidapi_url,
                     headers=headers,
                     params=params
                 ) as response:
@@ -216,7 +209,7 @@ class CrunchbaseAPI:
                 }
                 
                 # Search for companies actively hiring
-                url = "https://api.crunchbase.com/api/v4/searches/organizations"
+                url = settings.crunchbase_api_url
                 
                 payload = {
                     "field_ids": ["name", "short_description", "website", "location_identifiers"],

@@ -10,6 +10,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.config import settings
 from app.database.user_models import User
 from app.database.platform_models import (
     LearningModule, UserModuleProgress, LearningPath
@@ -69,42 +70,42 @@ async def get_course_providers():
             {
                 "name": "Coursera",
                 "description": "Professional courses from top universities and companies",
-                "website": "https://www.coursera.org",
+                "website": settings.coursera_website_url,
                 "specialties": ["University courses", "Professional certificates", "Degree programs"],
                 "cost": "Free audit, paid certificates"
             },
             {
                 "name": "edX", 
                 "description": "High-quality courses from leading institutions",
-                "website": "https://www.edx.org",
+                "website": settings.edx_website_url,
                 "specialties": ["University courses", "MicroMasters", "Professional education"],
                 "cost": "Free audit, paid verified certificates"
             },
             {
                 "name": "FutureLearn",
                 "description": "Social learning platform with courses from top universities",
-                "website": "https://www.futurelearn.com",
+                "website": settings.futurelearn_website_url,
                 "specialties": ["Short courses", "Microcredentials", "Degree programs"],
                 "cost": "Free limited access, paid unlimited access"
             },
             {
                 "name": "MIT OpenCourseWare",
                 "description": "Free MIT course materials online",
-                "website": "https://ocw.mit.edu",
+                "website": settings.mit_ocw_website_url,
                 "specialties": ["Technical courses", "Engineering", "Management"],
                 "cost": "Completely free"
             },
             {
                 "name": "YouTube Education",
                 "description": "Educational video content from experts",
-                "website": "https://www.youtube.com/education",
+                "website": settings.youtube_education_url,
                 "specialties": ["Video tutorials", "Practical demonstrations", "Expert insights"],
                 "cost": "Free with ads"
             },
             {
                 "name": "Khan Academy",
                 "description": "Free world-class education for anyone, anywhere",
-                "website": "https://www.khanacademy.org",
+                "website": settings.khan_academy_website_url,
                 "specialties": ["Business fundamentals", "Entrepreneurship", "Economics"],
                 "cost": "Completely free"
             }

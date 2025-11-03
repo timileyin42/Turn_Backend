@@ -3,7 +3,7 @@ User-related Pydantic v2 schemas with from_attributes=True.
 """
 from datetime import datetime
 from typing import List, Optional, Dict
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 from app.database.user_models import UserRole, SkillLevel
 
@@ -19,6 +19,23 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
     password: str = Field(..., min_length=8, max_length=100)
+    
+    @field_validator('password')
+    @classmethod
+    def truncate_password_for_bcrypt(cls, v: str) -> str:
+        """Truncate password to 72 bytes for bcrypt compatibility."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        password_bytes = v.encode('utf-8')
+        logger.info(f"Password validation - Length: {len(v)} chars, {len(password_bytes)} bytes")
+        
+        if len(password_bytes) > 72:
+            # Truncate to 72 bytes and decode back
+            truncated = password_bytes[:72].decode('utf-8', errors='ignore')
+            logger.warning(f"Password truncated from {len(password_bytes)} to {len(truncated.encode('utf-8'))} bytes")
+            return truncated
+        return v
 
 
 class UserUpdate(BaseModel):

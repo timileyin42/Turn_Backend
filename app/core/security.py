@@ -10,8 +10,12 @@ from pydantic import BaseModel
 from app.core.config import settings
 
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context with relaxed bcrypt settings
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__truncate_error=False  # Don't raise error for passwords >72 bytes, truncate automatically
+)
 
 
 class TokenData(BaseModel):
@@ -106,7 +110,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     """
-    Hash a password.
+    Hash a password with bcrypt, automatically handling length limits.
     
     Args:
         password: Plain text password
@@ -114,7 +118,20 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: Hashed password
     """
-    return pwd_context.hash(password)
+    # Pre-truncate password to 72 bytes for bcrypt compatibility
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+    
+    try:
+        return pwd_context.hash(password)
+    except ValueError as e:
+        # If passlib still complains about length, force truncate and retry
+        if "72 bytes" in str(e):
+            truncated_password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+            # Try again with definitely truncated password
+            return pwd_context.hash(truncated_password)
+        raise
 
 
 def create_refresh_token(subject: Union[str, Any]) -> str:

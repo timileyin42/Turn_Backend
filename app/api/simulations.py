@@ -9,6 +9,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.config import settings
 from app.database.user_models import User
 from app.database.project_models import ProjectSimulation
 from app.database.platform_models import SimulationStatus
@@ -38,7 +39,7 @@ async def get_simulation_templates():
             "skills_focus": ["Cloud Architecture", "Performance Optimization", "Cross-functional Leadership"],
             "real_world_basis": "Netflix 2020 Pandemic Traffic Surge",
             "learning_outcomes": ["Managing 300% traffic increase", "Multi-region deployment", "Crisis management"],
-            "case_study_url": "https://netflixtechblog.com/",
+            "case_study_url": settings.netflix_tech_blog_url,
             "industry_partner": "Netflix (Case Study)"
         },
         {
@@ -53,7 +54,7 @@ async def get_simulation_templates():
             "skills_focus": ["Agile Transformation", "Organizational Change", "Scaled Agile"],
             "real_world_basis": "Spotify's Engineering Culture Evolution",
             "learning_outcomes": ["Autonomous team structure", "Scaling agile practices", "Cultural transformation"],
-            "case_study_url": "https://engineering.atspotify.com/",
+            "case_study_url": settings.spotify_engineering_url,
             "industry_partner": "Spotify (Case Study)"
         },
         {
@@ -68,7 +69,7 @@ async def get_simulation_templates():
             "skills_focus": ["Global Program Management", "Supply Chain", "Crisis Response"],
             "real_world_basis": "COVAX Global Vaccine Distribution 2021",
             "learning_outcomes": ["Multi-stakeholder coordination", "Logistics optimization", "Global crisis management"],
-            "case_study_url": "https://www.who.int/initiatives/act-accelerator/covax",
+            "case_study_url": settings.who_covax_url,
             "industry_partner": "World Health Organization (Case Study)"
         },
         {
@@ -83,7 +84,7 @@ async def get_simulation_templates():
             "skills_focus": ["Manufacturing Operations", "International Expansion", "Regulatory Compliance"],
             "real_world_basis": "Tesla Gigafactory Berlin 2019-2022",
             "learning_outcomes": ["International project delivery", "Regulatory navigation", "Production scaling"],
-            "case_study_url": "https://www.tesla.com/gigafactory-berlin",
+            "case_study_url": settings.tesla_gigafactory_url,
             "industry_partner": "Tesla (Case Study)"
         },
         {
@@ -98,7 +99,7 @@ async def get_simulation_templates():
             "skills_focus": ["Product Management", "AI/ML Strategy", "Enterprise Sales"],
             "real_world_basis": "Microsoft Azure Cognitive Services Launch",
             "learning_outcomes": ["Product-market fit", "Technical complexity management", "Go-to-market strategy"],
-            "case_study_url": "https://azure.microsoft.com/en-us/products/cognitive-services/",
+            "case_study_url": settings.azure_cognitive_services_url,
             "industry_partner": "Microsoft (Case Study)"
         },
         {
@@ -113,7 +114,7 @@ async def get_simulation_templates():
             "skills_focus": ["Digital Transformation", "Customer Experience", "Legacy System Integration"],
             "real_world_basis": "Emirates Digital Innovation Initiative 2020-2021",
             "learning_outcomes": ["Customer journey optimization", "Legacy system modernization", "Service design"],
-            "case_study_url": "https://www.emirates.com/english/about-us/digital-innovation/",
+            "case_study_url": settings.emirates_digital_innovation_url,
             "industry_partner": "Emirates (Case Study)"
         },
         {
@@ -128,7 +129,7 @@ async def get_simulation_templates():
             "skills_focus": ["International Development", "Financial Technology", "Multi-country Coordination"],
             "real_world_basis": "World Bank Financial Inclusion Support Framework",
             "learning_outcomes": ["Cross-cultural management", "Impact measurement", "Sustainable development"],
-            "case_study_url": "https://www.worldbank.org/en/topic/financialinclusion",
+            "case_study_url": settings.worldbank_financial_inclusion_url,
             "industry_partner": "World Bank (Case Study)"
         },
         {
@@ -143,7 +144,7 @@ async def get_simulation_templates():
             "skills_focus": ["Content Strategy", "International Markets", "Cultural Adaptation"],
             "real_world_basis": "Amazon Prime Video International Expansion 2020-2022",
             "learning_outcomes": ["Market localization", "Content portfolio management", "Global brand consistency"],
-            "case_study_url": "https://press.amazonstudios.com/",
+            "case_study_url": settings.amazon_prime_press_url,
             "industry_partner": "Amazon (Case Study)"
         }
     ]

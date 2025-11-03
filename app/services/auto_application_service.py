@@ -9,12 +9,17 @@ from typing import Dict, List, Optional, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, desc, update
 from sqlalchemy.orm import selectinload
+from fastapi import HTTPException, status
 
 from app.core.database import get_db
 from app.core.logger import logger
 from app.database.user_models import User, Profile
 from app.database.job_models import JobListing, JobApplication, JobMatch
 from app.database.cv_models import CV
+from app.database.auto_application_models import (
+    PendingAutoApplication, AutoApplicationStatus, AutoApplicationLog,
+    JobMatchNotification, JobMatchNotificationType
+)
 from app.services.ai_service import ai_service, AICoachingType
 from app.services.job_matching_service import job_matching_service
 from app.services.job_search_service import job_search_service
@@ -255,33 +260,307 @@ class AutoApplicationService:
     async def get_pending_applications(
         self,
         db: AsyncSession,
-        user_id: int
+        user_id: int,
+        include_expired: bool = False
     ) -> List[Dict[str, Any]]:
         """Get pending applications requiring user approval."""
-        # This would fetch from a PendingApplications table
-        # For now, return empty list as we need to create the table first
-        return []
+        try:
+            # Build query
+            query = select(PendingAutoApplication).where(
+                and_(
+                    PendingAutoApplication.user_id == user_id,
+                    PendingAutoApplication.status == AutoApplicationStatus.PENDING_APPROVAL
+                )
+            )
+            
+            # Filter out expired unless requested
+            if not include_expired:
+                query = query.where(PendingAutoApplication.expires_at > datetime.utcnow())
+            
+            # Order by match score (best matches first)
+            query = query.order_by(desc(PendingAutoApplication.auto_apply_score))
+            
+            result = await db.execute(query)
+            pending_apps = result.scalars().all()
+            
+            # Convert to dict format
+            return [
+                {
+                    "pending_application_id": app.id,
+                    "job_title": app.job_title,
+                    "company_name": app.company_name,
+                    "location": app.location,
+                    "salary_range": app.salary_range,
+                    "employment_type": app.employment_type,
+                    "job_url": app.job_url,
+                    "job_description": app.job_description[:500] + "..." if app.job_description and len(app.job_description) > 500 else app.job_description,
+                    "match_score": app.match_score,
+                    "auto_apply_score": app.auto_apply_score,
+                    "match_reasons": app.match_reasons,
+                    "confidence_score": app.confidence_score,
+                    "generated_cover_letter": app.generated_cover_letter,
+                    "cv_customizations": app.cv_customizations,
+                    "application_summary": app.application_summary,
+                    "created_at": app.created_at.isoformat(),
+                    "expires_at": app.expires_at.isoformat(),
+                    "is_expired": app.expires_at < datetime.utcnow(),
+                    "days_until_expiry": (app.expires_at - datetime.utcnow()).days
+                }
+                for app in pending_apps
+            ]
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching pending applications for user {user_id}: {str(e)}")
+            return []
     
     async def approve_pending_application(
         self,
         db: AsyncSession,
         user_id: int,
-        pending_application_id: int
+        pending_application_id: int,
+        custom_cover_letter: Optional[str] = None
     ) -> Dict[str, Any]:
         """Approve and submit a pending application."""
-        # Implementation would fetch pending application and submit it
-        pass
+        try:
+            # Fetch pending application
+            result = await db.execute(
+                select(PendingAutoApplication).where(
+                    and_(
+                        PendingAutoApplication.id == pending_application_id,
+                        PendingAutoApplication.user_id == user_id
+                    )
+                )
+            )
+            pending_app = result.scalar_one_or_none()
+            
+            if not pending_app:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Pending application not found"
+                )
+            
+            # Check if already processed
+            if pending_app.status != AutoApplicationStatus.PENDING_APPROVAL:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Application already {pending_app.status.value}"
+                )
+            
+            # Check if expired
+            if pending_app.expires_at < datetime.utcnow():
+                pending_app.status = AutoApplicationStatus.EXPIRED
+                await db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Application has expired"
+                )
+            
+            # Update status to approved
+            pending_app.status = AutoApplicationStatus.APPROVED
+            pending_app.user_decision = "approved"
+            pending_app.user_decision_at = datetime.utcnow()
+            
+            # Use custom cover letter if provided
+            cover_letter = custom_cover_letter or pending_app.generated_cover_letter
+            
+            # Prepare application materials
+            application_materials = {
+                "cover_letter": cover_letter,
+                "cv_customizations": pending_app.cv_customizations,
+                "application_summary": pending_app.application_summary,
+                "confidence_score": pending_app.confidence_score,
+                "generated_at": datetime.utcnow().isoformat()
+            }
+            
+            # Prepare job data
+            job_data = {
+                "id": pending_app.job_listing_id,
+                "external_id": pending_app.external_job_id,
+                "title": pending_app.job_title,
+                "company": pending_app.company_name,
+                "description": pending_app.job_description,
+                "location": pending_app.location,
+                "url": pending_app.job_url,
+                "salary_range": pending_app.salary_range,
+                "employment_type": pending_app.employment_type
+            }
+            
+            # Submit the application
+            try:
+                submission_result = await self.submit_auto_application(
+                    db=db,
+                    user_id=user_id,
+                    job_data=job_data,
+                    application_materials=application_materials,
+                    user_approved=True
+                )
+                
+                # Update pending application with results
+                pending_app.status = AutoApplicationStatus.SUBMITTED
+                pending_app.submitted_application_id = submission_result.get("application_id")
+                pending_app.submission_result = submission_result
+                pending_app.processed_at = datetime.utcnow()
+                
+                # Log the approval and submission
+                await self._log_auto_application_activity(
+                    db=db,
+                    user_id=user_id,
+                    pending_application_id=pending_application_id,
+                    activity_type="application_approved_and_submitted",
+                    activity_description=f"User approved and submitted application for {pending_app.job_title} at {pending_app.company_name}",
+                    activity_data=submission_result,
+                    job_title=pending_app.job_title,
+                    company_name=pending_app.company_name,
+                    match_score=pending_app.match_score,
+                    success=True
+                )
+                
+                # Create success notification
+                await self._create_job_match_notification(
+                    db=db,
+                    user_id=user_id,
+                    pending_application_id=pending_application_id,
+                    notification_type=JobMatchNotificationType.APPLICATION_SUBMITTED,
+                    title=f"Application Submitted: {pending_app.job_title}",
+                    message=f"Your application to {pending_app.company_name} has been successfully submitted!",
+                    job_title=pending_app.job_title,
+                    company_name=pending_app.company_name,
+                    match_score=pending_app.match_score
+                )
+                
+                await db.commit()
+                
+                return {
+                    "success": True,
+                    "pending_application_id": pending_application_id,
+                    "application_id": submission_result.get("application_id"),
+                    "status": "submitted",
+                    "submission_result": submission_result,
+                    "message": f"Application successfully submitted to {pending_app.company_name}"
+                }
+                
+            except Exception as submit_error:
+                # Update status to failed
+                pending_app.status = AutoApplicationStatus.FAILED
+                pending_app.submission_error = str(submit_error)
+                pending_app.processed_at = datetime.utcnow()
+                
+                # Log the failure
+                await self._log_auto_application_activity(
+                    db=db,
+                    user_id=user_id,
+                    pending_application_id=pending_application_id,
+                    activity_type="application_submission_failed",
+                    activity_description=f"Failed to submit application for {pending_app.job_title} at {pending_app.company_name}",
+                    activity_data={"error": str(submit_error)},
+                    job_title=pending_app.job_title,
+                    company_name=pending_app.company_name,
+                    match_score=pending_app.match_score,
+                    success=False,
+                    error_message=str(submit_error)
+                )
+                
+                # Create failure notification
+                await self._create_job_match_notification(
+                    db=db,
+                    user_id=user_id,
+                    pending_application_id=pending_application_id,
+                    notification_type=JobMatchNotificationType.APPLICATION_FAILED,
+                    title=f"Application Failed: {pending_app.job_title}",
+                    message=f"We encountered an error submitting your application to {pending_app.company_name}. Please try manually.",
+                    job_title=pending_app.job_title,
+                    company_name=pending_app.company_name,
+                    match_score=pending_app.match_score
+                )
+                
+                await db.commit()
+                
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to submit application: {str(submit_error)}"
+                )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error approving pending application {pending_application_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error approving application: {str(e)}"
+            )
     
     async def reject_pending_application(
         self,
         db: AsyncSession,
         user_id: int,
         pending_application_id: int,
-        reason: str = None
+        reason: Optional[str] = None
     ) -> Dict[str, Any]:
         """Reject a pending application."""
-        # Implementation would mark pending application as rejected
-        pass
+        try:
+            # Fetch pending application
+            result = await db.execute(
+                select(PendingAutoApplication).where(
+                    and_(
+                        PendingAutoApplication.id == pending_application_id,
+                        PendingAutoApplication.user_id == user_id
+                    )
+                )
+            )
+            pending_app = result.scalar_one_or_none()
+            
+            if not pending_app:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Pending application not found"
+                )
+            
+            # Check if already processed
+            if pending_app.status != AutoApplicationStatus.PENDING_APPROVAL:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Application already {pending_app.status.value}"
+                )
+            
+            # Update status to rejected
+            pending_app.status = AutoApplicationStatus.REJECTED
+            pending_app.user_decision = "rejected"
+            pending_app.user_decision_at = datetime.utcnow()
+            pending_app.user_feedback = reason
+            pending_app.processed_at = datetime.utcnow()
+            
+            # Log the rejection
+            await self._log_auto_application_activity(
+                db=db,
+                user_id=user_id,
+                pending_application_id=pending_application_id,
+                activity_type="application_rejected",
+                activity_description=f"User rejected application for {pending_app.job_title} at {pending_app.company_name}",
+                activity_data={"reason": reason} if reason else None,
+                job_title=pending_app.job_title,
+                company_name=pending_app.company_name,
+                match_score=pending_app.match_score,
+                success=True
+            )
+            
+            await db.commit()
+            
+            return {
+                "success": True,
+                "pending_application_id": pending_application_id,
+                "status": "rejected",
+                "message": f"Application to {pending_app.company_name} rejected",
+                "feedback_recorded": bool(reason)
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error rejecting pending application {pending_application_id}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error rejecting application: {str(e)}"
+            )
     
     # Private helper methods
     
@@ -715,16 +994,76 @@ Best regards,
         application_materials: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Create pending application for user approval."""
-        # This would create a record in PendingApplications table
-        # For now, return a mock response
-        return {
-            "pending_application_id": f"pending_{user_id}_{datetime.utcnow().timestamp()}",
-            "status": "pending_approval",
-            "job_title": job_data.get("title"),
-            "company": job_data.get("company"),
-            "created_at": datetime.utcnow().isoformat(),
-            "requires_approval": True
-        }
+        try:
+            # Create pending application record
+            pending_app = PendingAutoApplication(
+                user_id=user_id,
+                job_listing_id=job_data.get("id"),
+                external_job_id=job_data.get("external_id"),
+                job_title=job_data.get("title", ""),
+                company_name=job_data.get("company", ""),
+                job_url=job_data.get("url"),
+                job_description=job_data.get("description"),
+                salary_range=job_data.get("salary_range"),
+                location=job_data.get("location"),
+                employment_type=job_data.get("employment_type"),
+                match_score=job_data.get("match_score", 0.8),
+                match_reasons=job_data.get("match_reasons"),
+                auto_apply_score=job_data.get("auto_apply_score", 0.8),
+                generated_cover_letter=application_materials.get("cover_letter"),
+                cv_customizations=application_materials.get("cv_customizations"),
+                application_summary=application_materials.get("application_summary"),
+                confidence_score=application_materials.get("confidence_score", 0.8),
+                status=AutoApplicationStatus.PENDING_APPROVAL,
+                expires_at=datetime.utcnow() + timedelta(days=7)  # 7 days to approve
+            )
+            
+            db.add(pending_app)
+            await db.commit()
+            await db.refresh(pending_app)
+            
+            # Log the activity
+            await self._log_auto_application_activity(
+                db=db,
+                user_id=user_id,
+                pending_application_id=pending_app.id,
+                activity_type="application_generated",
+                activity_description=f"Auto-application generated for {job_data.get('title')} at {job_data.get('company')}",
+                activity_data={"match_score": pending_app.match_score},
+                job_title=pending_app.job_title,
+                company_name=pending_app.company_name,
+                match_score=pending_app.match_score,
+                success=True
+            )
+            
+            # Create notification for user
+            await self._create_job_match_notification(
+                db=db,
+                user_id=user_id,
+                pending_application_id=pending_app.id,
+                notification_type=JobMatchNotificationType.APPROVAL_REQUIRED,
+                title=f"New Job Match: {pending_app.job_title}",
+                message=f"We found a great match for you at {pending_app.company_name}! Review and approve your application.",
+                action_url=f"/auto-applications/pending/{pending_app.id}",
+                job_title=pending_app.job_title,
+                company_name=pending_app.company_name,
+                match_score=pending_app.match_score
+            )
+            
+            return {
+                "pending_application_id": pending_app.id,
+                "status": "pending_approval",
+                "job_title": pending_app.job_title,
+                "company": pending_app.company_name,
+                "match_score": pending_app.match_score,
+                "created_at": pending_app.created_at.isoformat(),
+                "expires_at": pending_app.expires_at.isoformat(),
+                "requires_approval": True
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error creating pending application: {str(e)}")
+            raise
     
     async def _send_application_to_employer(
         self,
@@ -776,6 +1115,101 @@ Best regards,
                 )
         except Exception as e:
             self.logger.error(f"Error sending confirmation email: {str(e)}")
+    
+    async def _log_auto_application_activity(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        pending_application_id: Optional[int],
+        activity_type: str,
+        activity_description: str,
+        activity_data: Optional[Dict[str, Any]] = None,
+        job_title: Optional[str] = None,
+        company_name: Optional[str] = None,
+        match_score: Optional[float] = None,
+        success: bool = True,
+        error_message: Optional[str] = None
+    ) -> None:
+        """Log auto-application activity."""
+        try:
+            log_entry = AutoApplicationLog(
+                user_id=user_id,
+                pending_application_id=pending_application_id,
+                activity_type=activity_type,
+                activity_description=activity_description,
+                activity_data=activity_data,
+                job_title=job_title,
+                company_name=company_name,
+                match_score=match_score,
+                success=success,
+                error_message=error_message
+            )
+            
+            db.add(log_entry)
+            await db.commit()
+            
+        except Exception as e:
+            self.logger.error(f"Error logging auto-application activity: {str(e)}")
+    
+    async def _create_job_match_notification(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        pending_application_id: Optional[int],
+        notification_type: JobMatchNotificationType,
+        title: str,
+        message: str,
+        action_url: Optional[str] = None,
+        job_title: Optional[str] = None,
+        company_name: Optional[str] = None,
+        match_score: Optional[float] = None,
+        send_email: bool = True
+    ) -> None:
+        """Create job match notification for user."""
+        try:
+            notification = JobMatchNotification(
+                user_id=user_id,
+                pending_application_id=pending_application_id,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                action_url=action_url,
+                job_title=job_title,
+                company_name=company_name,
+                match_score=match_score,
+                expires_at=datetime.utcnow() + timedelta(days=30)
+            )
+            
+            db.add(notification)
+            await db.commit()
+            await db.refresh(notification)
+            
+            # Optionally send email notification
+            if send_email:
+                try:
+                    user_result = await db.execute(select(User).where(User.id == user_id))
+                    user = user_result.scalar_one_or_none()
+                    
+                    if user:
+                        # Send email notification
+                        await email_service.send_job_match_notification(
+                            user_email=user.email,
+                            job_title=job_title or "New Job Match",
+                            company_name=company_name or "Company",
+                            match_score=match_score or 0.0,
+                            notification_type=notification_type.value,
+                            action_url=action_url
+                        )
+                        
+                        notification.email_sent = True
+                        notification.email_sent_at = datetime.utcnow()
+                        await db.commit()
+                        
+                except Exception as email_error:
+                    self.logger.warning(f"Error sending notification email: {str(email_error)}")
+            
+        except Exception as e:
+            self.logger.error(f"Error creating job match notification: {str(e)}")
 
 
 # Global service instance

@@ -1,5 +1,5 @@
 """
-Email Service with Template Support
+Email Service with Template Support 
 
 """
  
@@ -70,7 +70,7 @@ class EmailTemplateService:
 
 class EmailService:
     """
-    Brevo (formerly Sendinblue) Email service with comprehensive template support
+    Resend Email service with comprehensive template support
     
     Features:
     - Transactional emails (OTP, password reset, welcome)
@@ -78,11 +78,11 @@ class EmailService:
     """
     
     def __init__(self):
-        # Brevo API configuration from settings
-        self.api_key = settings.brevo_api_key
-        self.base_url = settings.brevo_base_url
-        self.sender_email = settings.brevo_sender_email
-        self.sender_name = settings.brevo_sender_name
+        # Resend API configuration from settings
+        self.api_key = settings.resend_api_key
+        self.base_url = "https://api.resend.com/emails"
+        self.sender_email = settings.resend_sender_email
+        self.sender_name = settings.resend_sender_name
         
         # Initialize template service
         self.template_service = EmailTemplateService()
@@ -91,9 +91,9 @@ class EmailService:
         self._otp_store = {}
         
         if not self.api_key:
-            logger.warning("BREVO_API_KEY not found. Email service will not work.")
+            logger.warning("RESEND_API_KEY not found. Email service will not work.")
         else:
-            logger.info("Brevo EmailService initialized successfully")
+            logger.info("Resend EmailService initialized successfully")
     
     def generate_otp(self, length: int = 6) -> str:
         """Generate a random OTP code"""
@@ -103,7 +103,7 @@ class EmailService:
                         to_name: str = None, text_content: str = None,
                         sender_email: str = None, sender_name: str = None) -> Dict[str, Any]:
         """
-        Send an email using Brevo API
+        Send an email using Resend API
         
         Args:
             to_email: Recipient email address
@@ -118,36 +118,32 @@ class EmailService:
             Dict with success status and response data
         """
         if not self.api_key:
-            logger.error("Brevo API key not configured")
+            logger.error("Resend API key not configured")
             return {
                 "success": False,
                 "error": "Email service not configured"
             }
         
-        # Prepare request payload for Brevo API
+        # Prepare sender with name
+        from_field = sender_email or self.sender_email
+        if sender_name or self.sender_name:
+            from_field = f"{sender_name or self.sender_name} <{from_field}>"
+        
+        # Prepare request payload for Resend API
         payload = {
-            "sender": {
-                "email": sender_email or self.sender_email,
-                "name": sender_name or self.sender_name
-            },
-            "to": [
-                {
-                    "email": to_email,
-                    "name": to_name or to_email
-                }
-            ],
+            "from": from_field,
+            "to": [to_email],
             "subject": subject,
-            "htmlContent": html_content
+            "html": html_content
         }
         
         # Add text content if provided
         if text_content:
-            payload["textContent"] = text_content
+            payload["text"] = text_content
         
         headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "api-key": self.api_key
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
         }
         
         try:
@@ -156,7 +152,7 @@ class EmailService:
                 
                 if response.status_code in [200, 201]:
                     data = response.json()
-                    message_id = data.get("messageId")
+                    message_id = data.get("id")
                     logger.info(f"📧 Email sent successfully to {to_email}, Message ID: {message_id}")
                     return {
                         "success": True,
@@ -197,7 +193,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject="Welcome to TURN - Start Building Your Project Management Career! 🚀",
+                subject="Welcome to TURN - Start Building Your Project Management Career!",
                 html_content=html_content
             )
             
@@ -504,7 +500,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"🎯 {len(jobs)} New Job Opportunities Match Your Profile",
+                subject=f"{len(jobs)} New Job Opportunities Match Your Profile",
                 html_content=html_content
             )
             
@@ -571,7 +567,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"🎉 Congratulations! You've completed {course_details.get('name')}",
+                subject=f"Congratulations! You've completed {course_details.get('name')}",
                 html_content=html_content
             )
             
@@ -644,7 +640,7 @@ class EmailService:
     ) -> Dict[str, Any]:
         """Send email notification for new job match."""
         try:
-            subject = f"🎯 New Job Match: {job_title} at {company_name}"
+            subject = f"New Job Match: {job_title} at {company_name}"
             
             # Prepare template data
             template_data = {
@@ -697,7 +693,7 @@ class EmailService:
     ) -> Dict[str, Any]:
         """Send daily/weekly job match summary email."""
         try:
-            subject = f"📊 Your Job Match Summary: {total_matches} New Opportunities"
+            subject = f"Your Job Match Summary: {total_matches} New Opportunities"
             
             # Prepare template data
             template_data = {
@@ -818,7 +814,7 @@ class EmailService:
                 "rejected": {
                     "title": "� Application Update",
                     "class": "rejected",
-                    "icon": "📝"
+                    "icon": "&#128221;"  # Memo icon
                 },
                 "accepted": {
                     "title": "🎊 Job Offer Received",
@@ -826,9 +822,9 @@ class EmailService:
                     "icon": "🎊"
                 },
                 "withdrawn": {
-                    "title": "ℹ️ Application Withdrawn",
+                    "title": "Application Withdrawn",
                     "class": "pending",
-                    "icon": "ℹ️"
+                    "icon": "&#8505;"  # Info icon
                 }
             }
             

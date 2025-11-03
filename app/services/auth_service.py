@@ -79,10 +79,10 @@ class AuthenticationService:
                 email=db_user.email,
                 name=f"{db_user.first_name} {db_user.last_name}"
             )
-            print(f"✅ Welcome email sent successfully to: {db_user.email}")
+            print(f"Welcome email sent successfully to: {db_user.email}")
         except Exception as e:
             # Log error but don't fail registration
-            print(f"⚠️ Failed to send welcome email to {db_user.email}: {e}")
+            print(f"WARNING: Failed to send welcome email to {db_user.email}: {e}")
             # Email failure should not block user registration
         
         return UserResponse.model_validate(db_user)

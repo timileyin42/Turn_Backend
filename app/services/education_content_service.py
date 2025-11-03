@@ -13,8 +13,6 @@ from app.core.config import settings
 class CourseraAPI:
     """Integration with Coursera's public course catalog."""
     
-    BASE_URL = "https://api.coursera.org/api/courses.v1"
-    
     @staticmethod
     async def fetch_pm_courses() -> List[Dict[str, Any]]:
         """Fetch project management courses from Coursera."""
@@ -28,7 +26,7 @@ class CourseraAPI:
                     'limit': 50
                 }
                 
-                async with session.get(f"{CourseraAPI.BASE_URL}/courses", params=params) as response:
+                async with session.get(f"{settings.coursera_api_url}/courses", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('elements', [])
@@ -41,8 +39,6 @@ class CourseraAPI:
 class EdXAPI:
     """Integration with edX course catalog."""
     
-    BASE_URL = "https://courses.edx.org/api/courses/v1"
-    
     @staticmethod
     async def fetch_pm_courses() -> List[Dict[str, Any]]:
         """Fetch project management courses from edX."""
@@ -53,7 +49,7 @@ class EdXAPI:
                     'page_size': 50
                 }
                 
-                async with session.get(f"{EdXAPI.BASE_URL}/courses/", params=params) as response:
+                async with session.get(f"{settings.edx_api_url}/courses/", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('results', [])
@@ -66,8 +62,6 @@ class EdXAPI:
 class FutureLearnAPI:
     """Integration with FutureLearn course catalog."""
     
-    BASE_URL = "https://www.futurelearn.com/api/public/courses"
-    
     @staticmethod
     async def fetch_pm_courses() -> List[Dict[str, Any]]:
         """Fetch project management courses from FutureLearn."""
@@ -78,7 +72,7 @@ class FutureLearnAPI:
                     'page_size': 50
                 }
                 
-                async with session.get(FutureLearnAPI.BASE_URL, params=params) as response:
+                async with session.get(settings.futurelearn_api_url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('objects', [])
@@ -91,15 +85,13 @@ class FutureLearnAPI:
 class KhanAcademyAPI:
     """Integration with Khan Academy's public API."""
     
-    BASE_URL = "https://www.khanacademy.org/api/v1"
-    
     @staticmethod
     async def fetch_business_content() -> List[Dict[str, Any]]:
         """Fetch business and entrepreneurship content from Khan Academy."""
         async with aiohttp.ClientSession() as session:
             try:
                 # Khan Academy topic tree for business content
-                async with session.get(f"{KhanAcademyAPI.BASE_URL}/topic/business-and-entrepreneurship") as response:
+                async with session.get(f"{settings.khan_academy_api_url}/topic/business-and-entrepreneurship") as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('children', [])
@@ -142,7 +134,7 @@ class YouTubeEduAPI:
                         'videoEmbeddable': 'true'
                     }
                     
-                    async with session.get("https://www.googleapis.com/youtube/v3/search", params=params) as response:
+                    async with session.get(settings.youtube_search_api_url, params=params) as response:
                         if response.status == 200:
                             data = await response.json()
                             videos = data.get('items', [])
@@ -183,13 +175,12 @@ class OpenCourseWareAPI:
         async with aiohttp.ClientSession() as session:
             try:
                 # MIT OCW API
-                url = "https://ocw.mit.edu/api/v0/courses/"
                 params = {
                     'search': 'project management',
                     'format': 'json'
                 }
                 
-                async with session.get(url, params=params) as response:
+                async with session.get(settings.mit_ocw_api_url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('results', [])

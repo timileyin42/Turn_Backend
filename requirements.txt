@@ -13,7 +13,14 @@ aiohttp==3.9.1
 # Database
 sqlalchemy==2.0.23
 asyncpg==0.29.0
-psycopg2-binary==2.9.9
+# psycopg2-binary==2.9.9
+# psycopg2-binary was commented out because prebuilt wheels may not
+# be available for newer Python versions (for example Python 3.13) and
+# pip will try to build from source requiring PostgreSQL's pg_config.
+# If you need psycopg2 (sync driver) on Windows, either:
+#  - Install PostgreSQL and add pg_config to your PATH before installing, or
+#  - Use a Python version with an available binary wheel, or
+#  - Re-enable this line if your environment already provides pg_config.
 alembic==1.12.1
 
 # Pydantic v2
@@ -51,9 +58,14 @@ flake8==6.1.0
 # openai==1.3.7  # REMOVED - PAID SERVICE
 google-generativeai==0.3.2  # Google Gemini - FREE TIER
 groq==0.4.1  # Groq - FREE TIER with Llama/Mixtral
-transformers==4.35.2  # Hugging Face - FREE
-torch==2.1.1  # PyTorch for transformers - FREE
-sentence-transformers==2.2.2  # FREE embedding models
+# transformers==4.35.2  # Hugging Face - FREE
+# torch==2.1.1  # PyTorch for transformers - FREE
+# sentence-transformers==2.2.2  # FREE embedding models
+# The ML/torch stack is commented out by default because:
+#  - PyTorch wheels are platform and Python-version specific and
+#    often require manual installation instructions on Windows (CUDA/CPU builds).
+#  - Uncomment and install these separately following PyTorch's
+#    official instructions for your Python version and OS when needed.
 
 # Document generation - FREE LIBRARIES
 weasyprint==61.2  # HTML to PDF - FREE
@@ -81,8 +93,13 @@ redis==5.0.1
 stripe==7.8.0
 
 # Scientific computing for ML
-numpy==1.24.3
-scikit-learn==1.3.2
+# numpy==1.24.3
+# scikit-learn==1.3.2
+# NumPy and scikit-learn are commented out because binary wheels may
+# not be available for every Python version (for example Python 3.13).
+# If you need these for ML features, follow the platform-specific
+# installation instructions (install a compatible Python version or
+# install NumPy from a supported wheel) and then uncomment these lines.
 
 # Image processing
 pillow==10.1.0

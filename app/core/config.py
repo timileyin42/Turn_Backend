@@ -36,14 +36,13 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")  # Google Gemini - FREE TIER
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")  # Groq - FREE TIER
     
-    # Email Configuration
-    brevo_api_key: Optional[str] = Field(default=None, alias="BREVO_API_KEY")
-    brevo_sender_email: str = Field(alias="BREVO_SENDER_EMAIL")
-    brevo_sender_name: str = Field(alias="BREVO_SENDER_NAME")
-    brevo_base_url: str = Field(alias="BREVO_BASE_URL")
+    # Email Configuration - Resend
+    resend_api_key: Optional[str] = Field(default=None, alias="RESEND_API_KEY")
+    resend_sender_email: str = Field(alias="RESEND_SENDER_EMAIL")
+    resend_sender_name: str = Field(alias="RESEND_SENDER_NAME")
     from_email: str = Field(alias="FROM_EMAIL")
     
-    # Email verification enabled with Brevo
+    # Email verification enabled with Resend
     email_verification_enabled: bool = Field(alias="EMAIL_VERIFICATION_ENABLED")
     
     # File Storage
@@ -61,9 +60,50 @@ class Settings(BaseSettings):
     # Termii SMS Configuration (African markets)
     termii_api_key: Optional[str] = Field(default=None, alias="TERMII_API_KEY")
     termii_sender_id: str = Field(alias="TERMII_SENDER_ID")
+    termii_base_url: str = Field(alias="TERMII_BASE_URL")
     
-    # YouTube Data API Configuration (Free tier: 10,000 units/day)
+    # YouTube Data API Configuration
     youtube_api_key: Optional[str] = Field(default=None, alias="YOUTUBE_API_KEY")
+    
+    # Educational Content API URLs
+    coursera_api_url: str = Field(alias="COURSERA_API_URL")
+    edx_api_url: str = Field(alias="EDX_API_URL")
+    futurelearn_api_url: str = Field(alias="FUTURELEARN_API_URL")
+    khan_academy_api_url: str = Field(alias="KHAN_ACADEMY_API_URL")
+    youtube_search_api_url: str = Field(alias="YOUTUBE_SEARCH_API_URL")
+    mit_ocw_api_url: str = Field(alias="MIT_OCW_API_URL")
+    
+    # Educational Provider URLs (Public websites)
+    coursera_website_url: str = Field(alias="COURSERA_WEBSITE_URL")
+    edx_website_url: str = Field(alias="EDX_WEBSITE_URL")
+    futurelearn_website_url: str = Field(alias="FUTURELEARN_WEBSITE_URL")
+    khan_academy_website_url: str = Field(alias="KHAN_ACADEMY_WEBSITE_URL")
+    youtube_education_url: str = Field(alias="YOUTUBE_EDUCATION_URL")
+    mit_ocw_website_url: str = Field(alias="MIT_OCW_WEBSITE_URL")
+    
+    # Job Search API URLs
+    remoteok_api_url: str = Field(alias="REMOTEOK_API_URL")
+    remotive_api_url: str = Field(alias="REMOTIVE_API_URL")
+    github_api_url: str = Field(alias="GITHUB_API_URL")
+    angellist_api_url: str = Field(alias="ANGELLIST_API_URL")
+    linkedin_rapidapi_url: str = Field(alias="LINKEDIN_RAPIDAPI_URL")
+    indeed_rapidapi_url: str = Field(alias="INDEED_RAPIDAPI_URL")
+    crunchbase_api_url: str = Field(alias="CRUNCHBASE_API_URL")
+    
+    # Job Search API Keys (Optional - for paid APIs)
+    linkedin_rapidapi_key: Optional[str] = Field(default=None, alias="LINKEDIN_RAPIDAPI_KEY")
+    indeed_rapidapi_key: Optional[str] = Field(default=None, alias="INDEED_RAPIDAPI_KEY")
+    crunchbase_api_key: Optional[str] = Field(default=None, alias="CRUNCHBASE_API_KEY")
+    
+    # Case Study URLs (Project Simulations)
+    netflix_tech_blog_url: str = Field(alias="NETFLIX_TECH_BLOG_URL")
+    spotify_engineering_url: str = Field(alias="SPOTIFY_ENGINEERING_URL")
+    who_covax_url: str = Field(alias="WHO_COVAX_URL")
+    tesla_gigafactory_url: str = Field(alias="TESLA_GIGAFACTORY_URL")
+    azure_cognitive_services_url: str = Field(alias="AZURE_COGNITIVE_SERVICES_URL")
+    emirates_digital_innovation_url: str = Field(alias="EMIRATES_DIGITAL_INNOVATION_URL")
+    worldbank_financial_inclusion_url: str = Field(alias="WORLDBANK_FINANCIAL_INCLUSION_URL")
+    amazon_prime_press_url: str = Field(alias="AMAZON_PRIME_PRESS_URL")
     
     # Job Scraping
     job_scraping_enabled: bool = Field(alias="JOB_SCRAPING_ENABLED")

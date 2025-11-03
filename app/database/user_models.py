@@ -11,16 +11,20 @@ from app.core.database import Base
 from app.core.utils import utc_now
 
 if TYPE_CHECKING:
-    from app.database.platform_models import ProjectSimulation, CV, JobApplication, Portfolio
+    from app.database.platform_models import ProjectSimulation, CV, JobApplication, Portfolio, UserAchievement
     from app.database.community_models import ForumPost, ForumComment, Mentorship  
-    from app.database.job_models import SavedJob
+    from app.database.job_models import SavedJob, JobAlert
+    from app.database.cv_models import CVExport
+    from app.database.gamification_models import UserLevel
 
 
 class UserRole(str, enum.Enum):
-    """User role enumeration."""
-    USER = "user"
-    MENTOR = "mentor"
-    ADMIN = "admin"
+    """User role enumeration for RBAC."""
+    USER = "user"              # Regular job seeker/learner
+    RECRUITER = "recruiter"    # Recruiter who can post jobs
+    COMPANY = "company"        # Company representative
+    MENTOR = "mentor"          # Mentor who provides guidance
+    ADMIN = "admin"            # Platform administrator
 
 
 class SkillLevel(int, enum.Enum):
@@ -56,13 +60,17 @@ class User(Base):
     mentor_profile: Mapped[Optional["MentorProfile"]] = relationship("MentorProfile", back_populates="user", uselist=False)
     projects: Mapped[List["ProjectSimulation"]] = relationship("ProjectSimulation", back_populates="user")
     cvs: Mapped[List["CV"]] = relationship("CV", back_populates="user")
+    cv_exports: Mapped[List["CVExport"]] = relationship("CVExport", back_populates="user")
     job_applications: Mapped[List["JobApplication"]] = relationship("JobApplication", back_populates="user")
+    job_alerts: Mapped[List["JobAlert"]] = relationship("JobAlert", back_populates="user")
     saved_jobs: Mapped[List["SavedJob"]] = relationship("SavedJob", back_populates="user")
     portfolios: Mapped[List["Portfolio"]] = relationship("Portfolio", back_populates="user")
     forum_posts: Mapped[List["ForumPost"]] = relationship("ForumPost", back_populates="author")
     forum_comments: Mapped[List["ForumComment"]] = relationship("ForumComment", back_populates="author")
     mentorships_as_mentee: Mapped[List["Mentorship"]] = relationship("Mentorship", foreign_keys="Mentorship.mentee_id", back_populates="mentee")
     mentorships_as_mentor: Mapped[List["Mentorship"]] = relationship("Mentorship", foreign_keys="Mentorship.mentor_id", back_populates="mentor")
+    achievements: Mapped[List["UserAchievement"]] = relationship("UserAchievement", back_populates="user")
+    level_progression: Mapped[Optional["UserLevel"]] = relationship("UserLevel", back_populates="user", uselist=False)
 
     # Composite indexes for common query patterns
     __table_args__ = (

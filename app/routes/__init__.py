@@ -6,25 +6,31 @@ All routes use FastAPI with comprehensive validation, error handling, and OpenAP
 from .auth_routes import router as auth_router
 from .user_routes import router as user_router
 from .gamification_routes import router as gamification_router
-# from .project_routes import router as project_router  # TODO: Fix project service imports
-# from .cv_routes import router as cv_router  # TODO: Fix CV service schema mismatches
-# from .job_routes import router as job_router  # TODO: Fix job service imports
+from .admin_routes import router as admin_router
+from app.api.direct_application import router as direct_application_router
+from .project_routes import router as project_router
+from .cv_routes import router as cv_router
+from .job_routes import router as job_router
 
 # List of all routers to be included in the main app
 routers = [
     auth_router,
     user_router,
+    admin_router,
     gamification_router,
-    # project_router,  # TODO: Fix project service imports
-    # cv_router,       # TODO: Fix CV service schema mismatches
-    # job_router       # TODO: Fix job service imports
+    direct_application_router,
+    project_router,
+    cv_router,
+    job_router
 ]
 
 __all__ = [
     "auth_router",
-    "user_router", 
+    "user_router",
+    "admin_router",
     "project_router",
     "cv_router",
     "job_router",
+    "direct_application_router",
     "routers"
 ]

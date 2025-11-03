@@ -44,7 +44,7 @@ class ForumPost(Base):
     
     # Question-specific fields
     is_answered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    accepted_answer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_comments.id"), nullable=True)
+    accepted_answer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_comments.id", use_alter=True, name="fk_forum_post_accepted_answer"), nullable=True)
     
     # SEO and search
     slug: Mapped[Optional[str]] = mapped_column(String(350), unique=True, nullable=True, index=True)
@@ -105,7 +105,7 @@ class ForumCategory(Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     
     # Category organization
-    parent_category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_categories.id"), nullable=True)
+    parent_category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_categories.id", use_alter=True, name="fk_forum_category_parent"), nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     
     # Category metadata
@@ -158,7 +158,7 @@ class ForumComment(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("forum_posts.id", ondelete="CASCADE"), nullable=False)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    parent_comment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_comments.id"), nullable=True)
+    parent_comment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_comments.id", use_alter=True, name="fk_forum_comment_parent"), nullable=True)
     
     # Comment content
     content: Mapped[str] = mapped_column(Text, nullable=False)

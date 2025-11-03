@@ -6,10 +6,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.routes import routers
+from app.core.logging_middleware import RequestLoggingMiddleware, DatabaseQueryLoggingMiddleware
 
 
 @asynccontextmanager
@@ -18,14 +20,54 @@ async def lifespan(app: FastAPI):
     FastAPI lifespan context manager for startup and shutdown events.
     """
     # Startup
-    print(f"Starting {settings.app_name}")
-    print(f"Environment: {settings.environment}")
-    print(f"Debug mode: {settings.debug}")
+    print("=" * 80)
+    print(f" Starting {settings.app_name}")
+    print(f" Environment: {settings.environment}")
+    print(f" Debug mode: {settings.debug}")
+    print("=" * 80)
     
     yield
     
     # Shutdown
-    print(f"Shutting down {settings.app_name}")
+    print("=" * 80)
+    print(f" Shutting down {settings.app_name}")
+    print("=" * 80)
+
+
+def custom_openapi():
+    """
+    Custom OpenAPI schema with OAuth2 password flow for Swagger UI.
+    This allows users to login with email/password directly in Swagger.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=settings.app_name,
+        version="1.0.0",
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Configure OAuth2 password flow for Swagger UI authentication
+    openapi_schema["components"]["securitySchemes"] = {
+        "OAuth2PasswordBearer": {
+            "type": "oauth2",
+            "flows": {
+                "password": {
+                    "tokenUrl": "/api/v1/auth/login",
+                    "scopes": {}  # Empty scopes - roles are handled in token
+                }
+            },
+            "description": "Enter your email and password to login"
+        }
+    }
+    
+    # Set default security to OAuth2 ONLY
+    openapi_schema["security"] = [{"OAuth2PasswordBearer": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
 
 # Create FastAPI application
@@ -34,7 +76,31 @@ app = FastAPI(
     description="""
     TURN - A comprehensive web application for aspiring project managers.
     
-    ## Features
+    ##  How to Authenticate
+    
+    **Simple 3-Step Login:**
+    
+    1. **Click "Authorize" ** (green button at top right)
+    2. **Enter your credentials:**
+       - Username: `your-email@example.com`
+       - Password: `your-password`
+    3. **Click "Authorize"** - Done! All requests now authenticated
+    
+    **No Bearer tokens to copy!** The token is handled automatically.
+    
+    ---
+    
+    ##  Role-Based Access Control (RBAC)
+    
+    -  **USER**: Regular job seekers and learners (default)
+    -  **RECRUITER**: Can post jobs and manage applications
+    -  **COMPANY**: Company representatives with extended access
+    -  **MENTOR**: Provides mentorship and guidance
+    -  **ADMIN**: Platform administrators with full access
+    
+    Your role determines which endpoints you can access.
+    
+    --- Features
     
     * **User Management** - Registration, authentication, and profile management
     * **AI PM Teacher** - Intelligent coaching, personalized learning paths, and career guidance
@@ -44,6 +110,7 @@ app = FastAPI(
     * **Learning Hub** - Courses from top platforms like Coursera, edX, YouTube
     * **Project Simulations** - Real-world case studies from Netflix, Spotify, Tesla
     * **Portfolio Builder** - Showcase your PM projects and achievements
+    * **Direct Application** - AI-powered direct application to CEO/HR of startups and SMEs
     
     ## AI-Powered Learning
     
@@ -62,8 +129,24 @@ app = FastAPI(
     },
 
     lifespan=lifespan,
-    debug=settings.debug
+    debug=settings.debug,
+    
+    # Configure Swagger UI settings
+    swagger_ui_parameters={
+        "persistAuthorization": True,  # Remember auth between page refreshes
+        "displayRequestDuration": True,  # Show request time
+        "filter": True,  # Enable search/filter
+        "tryItOutEnabled": True,  # Enable "Try it out" by default
+    }
 )
+
+# Set custom OpenAPI schema
+app.openapi = custom_openapi
+
+# Add logging middleware (add FIRST for most accurate timing)
+if settings.debug:
+    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(DatabaseQueryLoggingMiddleware)
 
 # CORS middleware
 app.add_middleware(
