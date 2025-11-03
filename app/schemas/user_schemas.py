@@ -13,28 +13,35 @@ class UserBase(BaseModel):
     """Base user schema."""
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-    role: UserRole = UserRole.USER
 
 
 class UserCreate(UserBase):
-    """Schema for creating a new user."""
-    password: str = Field(..., min_length=8, max_length=100)
+    """Schema for creating a new user. Role is always set to USER by default."""
+    password: str = Field(..., min_length=8, max_length=72, description="Password (max 72 characters for bcrypt compatibility)")
+    first_name: Optional[str] = Field(None, min_length=1, max_length=50, description="User's first name")
+    last_name: Optional[str] = Field(None, min_length=1, max_length=50, description="User's last name")
     
     @field_validator('password')
     @classmethod
-    def truncate_password_for_bcrypt(cls, v: str) -> str:
-        """Truncate password to 72 bytes for bcrypt compatibility."""
+    def validate_password(cls, v: str) -> str:
+        """Validate and truncate password to 72 bytes for bcrypt compatibility."""
         import logging
         logger = logging.getLogger(__name__)
         
         password_bytes = v.encode('utf-8')
         logger.info(f"Password validation - Length: {len(v)} chars, {len(password_bytes)} bytes")
         
+        # bcrypt has a hard limit of 72 bytes
         if len(password_bytes) > 72:
-            # Truncate to 72 bytes and decode back
-            truncated = password_bytes[:72].decode('utf-8', errors='ignore')
-            logger.warning(f"Password truncated from {len(password_bytes)} to {len(truncated.encode('utf-8'))} bytes")
+            # Truncate to 72 bytes, ensuring we don't cut in the middle of a multi-byte character
+            truncated_bytes = password_bytes[:72]
+            # Decode and ignore any incomplete characters at the end
+            truncated = truncated_bytes.decode('utf-8', errors='ignore')
+            # Re-encode to verify final byte count
+            final_bytes = truncated.encode('utf-8')
+            logger.warning(f"Password truncated from {len(password_bytes)} to {len(final_bytes)} bytes")
             return truncated
+        
         return v
 
 
@@ -55,6 +62,7 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
+    profile: Optional["UserProfile"] = None  # Include user profile
 
 
 class UserProfile(BaseModel):
@@ -85,6 +93,18 @@ class UserProfile(BaseModel):
     completion_percentage: int
     created_at: datetime
     updated_at: datetime
+    
+    @field_validator('target_industries', 'preferred_methodologies', mode='before')
+    @classmethod
+    def parse_json_lists(cls, v):
+        """Convert JSON string to list if needed."""
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v
 
 
 class ProfileCreate(BaseModel):
@@ -235,13 +255,33 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     """Password reset confirmation schema."""
     token: str
-    new_password: str = Field(..., min_length=8, max_length=100)
+    new_password: str = Field(..., min_length=8, max_length=72, description="New password (max 72 characters)")
+    
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        """Validate and truncate password to 72 bytes for bcrypt compatibility."""
+        password_bytes = v.encode('utf-8')
+        if len(password_bytes) > 72:
+            truncated_bytes = password_bytes[:72]
+            return truncated_bytes.decode('utf-8', errors='ignore')
+        return v
 
 
 class ChangePasswordRequest(BaseModel):
     """Change password request schema."""
     current_password: str
-    new_password: str = Field(..., min_length=8, max_length=100)
+    new_password: str = Field(..., min_length=8, max_length=72, description="New password (max 72 characters)")
+    
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        """Validate and truncate password to 72 bytes for bcrypt compatibility."""
+        password_bytes = v.encode('utf-8')
+        if len(password_bytes) > 72:
+            truncated_bytes = password_bytes[:72]
+            return truncated_bytes.decode('utf-8', errors='ignore')
+        return v
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -267,4 +307,7 @@ class UserSearchRequest(BaseModel):
 
 # Aliases for backwards compatibility
 PasswordChangeRequest = ChangePasswordRequest
+
+# Update forward references for nested models
+UserResponse.model_rebuild()
 UserProfileUpdate = ProfileUpdate

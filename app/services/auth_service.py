@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.security import verify_password, get_password_hash
-from app.database.user_models import User
+from app.database.user_models import User, Profile
 from app.services.email_service import email_service
 from app.services.otp_service import otp_service
 from app.schemas.user_schemas import (
@@ -54,35 +54,44 @@ class AuthenticationService:
         if existing_username:
             raise ValueError("Username already taken")
         
-        # Create new user
+        # Create new user (basic auth info only)
         hashed_password = get_password_hash(user_data.password)
         
         db_user = User(
             email=user_data.email,
             username=user_data.username,
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
             hashed_password=hashed_password,
             is_active=True,
-            email_verified=True,  # Auto-verify for now to save costs
+            is_verified=False,  # User must verify email first
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
         db.add(db_user)
+        await db.flush()  # Flush to get user.id without committing
+        
+        # Create user profile with personal information
+        db_profile = Profile(
+            user_id=db_user.id,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name
+        )
+        
+        db.add(db_profile)
         await db.commit()
         await db.refresh(db_user)
         
-        # Send welcome email to new user
+        # Send OTP verification email immediately upon registration
+        user_name = f"{user_data.first_name or ''} {user_data.last_name or ''}".strip() or user_data.username
         try:
-            await email_service.send_welcome_email(
+            await email_service.send_verification_otp(
                 email=db_user.email,
-                name=f"{db_user.first_name} {db_user.last_name}"
+                name=user_name
             )
-            print(f"Welcome email sent successfully to: {db_user.email}")
+            print(f"✅ Verification OTP sent successfully to: {db_user.email}")
         except Exception as e:
             # Log error but don't fail registration
-            print(f"WARNING: Failed to send welcome email to {db_user.email}: {e}")
+            print(f"⚠️ WARNING: Failed to send verification OTP to {db_user.email}: {e}")
             # Email failure should not block user registration
         
         return UserResponse.model_validate(db_user)
@@ -103,9 +112,9 @@ class AuthenticationService:
             User if authentication successful, None otherwise
         """
         # Try to find user by email or username
-        user = await self._get_user_by_email(db, login_data.email_or_username)
+        user = await self._get_user_by_email(db, login_data.username)
         if not user:
-            user = await self._get_user_by_username(db, login_data.email_or_username)
+            user = await self._get_user_by_username(db, login_data.username)
         
         if not user:
             return None
@@ -336,6 +345,7 @@ class AuthenticationService:
     ) -> bool:
         """
         Verify user email with verification token.
+        After verification, sends welcome email.
         
         Args:
             db: Database session
@@ -360,10 +370,90 @@ class AuthenticationService:
         if not user:
             return False
         
-        user.email_verified = True
+        # Mark email as verified
+        user.is_verified = True
         user.updated_at = datetime.utcnow()
         
         await db.commit()
+        await db.refresh(user)
+        
+        # Send welcome email after successful verification
+        try:
+            # Get user's name from profile
+            result = await db.execute(
+                select(Profile).filter(Profile.user_id == user.id)
+            )
+            profile = result.scalar_one_or_none()
+            
+            user_name = user.username
+            if profile and (profile.first_name or profile.last_name):
+                user_name = f"{profile.first_name or ''} {profile.last_name or ''}".strip()
+            
+            await email_service.send_welcome_email(
+                email=user.email,
+                name=user_name
+            )
+            print(f"🎉 Welcome email sent to {user.email} after verification!")
+        except Exception as e:
+            print(f"⚠️ WARNING: Failed to send welcome email to {user.email}: {e}")
+            # Don't fail verification if welcome email fails
+        
+        return True
+    
+    async def verify_email_otp(
+        self, 
+        db: AsyncSession, 
+        email: str,
+        otp: str
+    ) -> bool:
+        """
+        Verify user email with OTP code.
+        After verification, sends welcome email.
+        
+        Args:
+            db: Database session
+            email: User email
+            otp: OTP code to verify
+            
+        Returns:
+            True if email verified successfully
+        """
+        user = await self._get_user_by_email(db, email)
+        if not user:
+            return False
+        
+        # Verify OTP
+        if not otp_service.verify_otp(email, otp, "verification"):
+            return False
+        
+        # Mark email as verified
+        user.is_verified = True
+        user.updated_at = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        # Send welcome email after successful verification
+        try:
+            # Get user's name from profile
+            result = await db.execute(
+                select(Profile).filter(Profile.user_id == user.id)
+            )
+            profile = result.scalar_one_or_none()
+            
+            user_name = user.username
+            if profile and (profile.first_name or profile.last_name):
+                user_name = f"{profile.first_name or ''} {profile.last_name or ''}".strip()
+            
+            await email_service.send_welcome_email(
+                email=user.email,
+                name=user_name
+            )
+            print(f"🎉 Welcome email sent to {user.email} after OTP verification!")
+        except Exception as e:
+            print(f"⚠️ WARNING: Failed to send welcome email to {user.email}: {e}")
+            # Don't fail verification if welcome email fails
+        
         return True
     
     async def resend_verification_email(

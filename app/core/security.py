@@ -4,18 +4,13 @@ Security utilities for authentication and authorization.
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Union, Any
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from pydantic import BaseModel
+import logging
 
 from app.core.config import settings
 
-
-# Password hashing context with relaxed bcrypt settings
-pwd_context = CryptContext(
-    schemes=["bcrypt"], 
-    deprecated="auto",
-    bcrypt__truncate_error=False  # Don't raise error for passwords >72 bytes, truncate automatically
-)
+logger = logging.getLogger(__name__)
 
 
 class TokenData(BaseModel):
@@ -96,7 +91,9 @@ def verify_token(token: str) -> Optional[TokenData]:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Verify a password against its hash.
+    Verify a password against its hash using bcrypt.
+    
+    Truncates password to 72 bytes before verification to match bcrypt's behavior.
     
     Args:
         plain_password: Plain text password
@@ -105,33 +102,53 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Truncate to 72 bytes for bcrypt compatibility
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        
+        # bcrypt.checkpw requires bytes for both arguments
+        hashed_bytes = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+        
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception as e:
+        logger.error(f"Password verification error: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """
     Hash a password with bcrypt, automatically handling length limits.
     
+    bcrypt has a hard limit of 72 bytes. This function ensures the password
+    is properly truncated before hashing.
+    
     Args:
         password: Plain text password
         
     Returns:
-        str: Hashed password
+        str: Hashed password (as string, not bytes)
     """
-    # Pre-truncate password to 72 bytes for bcrypt compatibility
-    password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        password = password_bytes[:72].decode('utf-8', errors='ignore')
-    
     try:
-        return pwd_context.hash(password)
-    except ValueError as e:
-        # If passlib still complains about length, force truncate and retry
-        if "72 bytes" in str(e):
-            truncated_password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
-            # Try again with definitely truncated password
-            return pwd_context.hash(truncated_password)
-        raise
+        # Pre-truncate password to 72 bytes for bcrypt compatibility
+        password_bytes = password.encode('utf-8')
+        
+        if len(password_bytes) > 72:
+            # Truncate to exactly 72 bytes
+            password_bytes = password_bytes[:72]
+            logger.warning(f"Password truncated to {len(password_bytes)} bytes for bcrypt")
+        
+        # Generate salt and hash the password
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        
+        # Return as string (decode from bytes)
+        return hashed.decode('utf-8')
+        
+    except Exception as e:
+        logger.error(f"Password hashing error: {e}")
+        raise ValueError(f"Failed to hash password: {str(e)}")
 
 
 def create_refresh_token(subject: Union[str, Any]) -> str:

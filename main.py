@@ -69,7 +69,8 @@ def custom_openapi():
     This ensures Swagger's Authorize modal shows username/password (password flow) instead of the
     HTTP Bearer input box.
     """
-    if app.openapi_schema:
+    # Always regenerate in debug mode to pick up changes
+    if app.openapi_schema and not settings.debug:
         return app.openapi_schema
 
     openapi_schema = get_openapi(
@@ -83,8 +84,9 @@ def custom_openapi():
     components = openapi_schema.setdefault("components", {})
 
     # Define OAuth2 Password flow as the primary security scheme
+    # IMPORTANT: The scheme name must match what OAuth2PasswordBearer uses
     components["securitySchemes"] = {
-        "OAuth2Password": {
+        "OAuth2PasswordBearer": {
             "type": "oauth2",
             "flows": {
                 "password": {
@@ -92,12 +94,12 @@ def custom_openapi():
                     "scopes": {}
                 }
             },
-            "description": "OAuth2 Password Flow - enter email as username and your password"
+            "description": "OAuth2 Password Flow - enter your username (or email) and password"
         }
     }
 
-    # Set global security to use OAuth2Password only
-    openapi_schema["security"] = [{"OAuth2Password": []}]
+    # Set global security to use OAuth2PasswordBearer
+    openapi_schema["security"] = [{"OAuth2PasswordBearer": []}]
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema

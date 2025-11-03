@@ -17,3 +17,5 @@ htmlcov/
 # Logs
 *.log
 logs/
+
+test_email_and_cleanup.py

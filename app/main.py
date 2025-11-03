@@ -56,10 +56,10 @@ def custom_openapi():
             "flows": {
                 "password": {
                     "tokenUrl": "/api/v1/auth/login",
-                    "scopes": {}  # Empty scopes - roles are handled in token
+                    "scopes": {}
                 }
             },
-            "description": "Enter your email and password to login"
+            "description": "Login with your email and password. Your role is automatically included in the token."
         }
     }
     

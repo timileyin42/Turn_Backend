@@ -281,6 +281,36 @@ async def verify_email(
 
 
 @router.post(
+    "/verify-email-otp",
+    summary="Verify email with OTP",
+    description="Verify user's email address using OTP code sent during registration"
+)
+async def verify_email_otp(
+    email: str,
+    otp: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Verify user's email address using OTP."""
+    try:
+        success = await auth_service.verify_email_otp(db, email, otp)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired OTP code"
+            )
+        
+        return {"message": "Email verified successfully. Welcome email sent!"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email verification failed"
+        )
+
+
+@router.post(
     "/send-login-otp",
     summary="Send login OTP",
     description="Send OTP for passwordless login"
@@ -452,3 +482,4 @@ async def logout():
     # Since we're using stateless JWT tokens, logout is handled client-side
     # In a production system, you might want to blacklist tokens in Redis
     return {"message": "Logged out successfully"}
+

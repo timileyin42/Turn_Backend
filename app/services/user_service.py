@@ -112,8 +112,15 @@ class UserService:
         # Update profile fields
         update_data = profile_data.model_dump(exclude_unset=True)
         if update_data:
+            import json
+            # Convert list fields to JSON strings
+            list_fields = ['target_industries', 'preferred_methodologies', 'preferred_job_types', 'excluded_companies']
             for field, value in update_data.items():
-                setattr(user.profile, field, value)
+                if field in list_fields and isinstance(value, list):
+                    # Convert list to JSON string
+                    setattr(user.profile, field, json.dumps(value))
+                else:
+                    setattr(user.profile, field, value)
             
             user.profile.updated_at = datetime.utcnow()
             await db.commit()
@@ -149,10 +156,16 @@ class UserService:
         # Update preferences
         update_data = preferences_data.model_dump(exclude_unset=True)
         if update_data:
-            # Merge with existing preferences
-            current_preferences = user.profile.preferences or {}
-            current_preferences.update(update_data)
-            user.profile.preferences = current_preferences
+            # Handle timezone separately as it's a direct column
+            if 'timezone' in update_data:
+                user.profile.timezone = update_data.pop('timezone')
+            
+            # Merge remaining preferences with existing preferences
+            if update_data:
+                current_preferences = user.profile.preferences or {}
+                current_preferences.update(update_data)
+                user.profile.preferences = current_preferences
+            
             user.profile.updated_at = datetime.utcnow()
             
             await db.commit()
@@ -323,6 +336,11 @@ class UserService:
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
+        
+        # Upgrade user role to MENTOR
+        from app.database.user_models import UserRole
+        user.role = UserRole.MENTOR
+        user.updated_at = datetime.utcnow()
         
         db.add(mentor_profile)
         await db.commit()

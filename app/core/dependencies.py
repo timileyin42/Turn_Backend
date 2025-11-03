@@ -1,16 +1,17 @@
 """
 FastAPI dependencies for authentication, database access, and common utilities.
 """
-from typing import Optional, List, AsyncGenerator
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional, List, AsyncGenerator, Annotated
+from fastapi import Depends, HTTPException, status, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.services.auth_service import auth_service
 from app.database.user_models import User, UserRole
 
-security = HTTPBearer()
+# Use OAuth2PasswordBearer for OpenAPI schema integration
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -28,14 +29,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
     Get current authenticated user from JWT token.
     
     Args:
-        credentials: HTTP Bearer token
+        token: JWT token from OAuth2 password bearer
         db: Database session
         
     Returns:
@@ -44,8 +45,15 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
     try:
-        user = await auth_service.get_current_user(db, credentials.credentials)
+        user = await auth_service.get_current_user(db, token)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -88,7 +96,7 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """
@@ -96,17 +104,17 @@ async def get_optional_user(
     Useful for endpoints that work with or without authentication.
     
     Args:
-        credentials: Optional HTTP Bearer token
+        token: Optional JWT token from OAuth2 password bearer
         db: Database session
         
     Returns:
         Optional[User]: Current user if authenticated, None otherwise
     """
-    if not credentials:
+    if not token:
         return None
     
     try:
-        user = await auth_service.get_current_user(db, credentials.credentials)
+        user = await auth_service.get_current_user(db, token)
         return user if user and user.is_active else None
     except:
         return None

@@ -6,10 +6,16 @@ from datetime import datetime, date
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.database.user_models import User
+from app.database.gamification_models import (
+    Badge, Challenge, GameChallengeParticipation, UserStreak,
+    PointTransaction, Leaderboard, LeaderboardEntry, UserLevel,
+    ChallengeStatus
+)
 from app.services.gamification_service import GamificationService
 from app.schemas.gamification_schemas import (
     # Badge schemas
@@ -41,9 +47,9 @@ router = APIRouter(prefix="/gamification", tags=["gamification"])
 
 
 # Helper function to get gamification service
-def get_gamification_service(db: Session = Depends(get_db)) -> GamificationService:
+def get_gamification_service() -> GamificationService:
     """Get gamification service instance."""
-    return GamificationService(db)
+    return GamificationService()
 
 
 @router.get("/badges", response_model=List[BadgeResponse])
@@ -57,13 +63,9 @@ async def get_all_badges(
     current_user: User = Depends(get_current_user)
 ):
     """Get all available badges with optional filtering."""
-    gamification_service = get_gamification_service(db)
-    badges = gamification_service.get_badges(
-        skip=skip, 
-        limit=limit, 
-        badge_type=badge_type,
-        rarity=rarity,
-        is_active=is_active
+    gamification_service = get_gamification_service()
+    badges = await gamification_service.get_all_badges(
+        db, skip=skip, limit=limit, badge_type=badge_type, rarity=rarity
     )
     return badges
 
@@ -75,8 +77,8 @@ async def get_badge_details(
     current_user: User = Depends(get_current_user)
 ):
     """Get detailed information about a specific badge."""
-    gamification_service = get_gamification_service(db)
-    badge = gamification_service.get_badge_by_id(badge_id)
+    gamification_service = get_gamification_service()
+    badge = await gamification_service.get_badge_by_id(db, badge_id)
     if not badge:
         raise HTTPException(status_code=404, detail="Badge not found")
     return badge
@@ -91,12 +93,9 @@ async def get_user_badges(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's badges and progress."""
-    gamification_service = get_gamification_service(db)
-    user_badges = gamification_service.get_user_badges(
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        completed_only=completed_only
+    gamification_service = get_gamification_service()
+    user_badges = await gamification_service.get_user_badges(
+        db, user_id=current_user.id, earned_only=completed_only
     )
     return user_badges
 
@@ -108,10 +107,9 @@ async def get_badge_progress(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's progress towards all badges."""
-    gamification_service = get_gamification_service(db)
-    progress = gamification_service.get_badge_progress(
-        user_id=current_user.id,
-        badge_type=badge_type
+    gamification_service = get_gamification_service()
+    progress = await gamification_service.get_badge_progress(
+        db, user_id=current_user.id
     )
     return progress
 
@@ -124,8 +122,8 @@ async def create_badge(
 ):
     """Create a new badge (admin only)."""
     # TODO: Add admin permission check
-    gamification_service = get_gamification_service(db)
-    badge = gamification_service.create_badge(badge_data.model_dump())
+    gamification_service = get_gamification_service()
+    badge = await gamification_service.create_badge(db, badge_data.model_dump())
     return badge
 
 
@@ -140,13 +138,10 @@ async def get_challenges(
     current_user: User = Depends(get_current_user)
 ):
     """Get all available challenges with optional filtering."""
-    gamification_service = get_gamification_service(db)
-    challenges = gamification_service.get_challenges(
-        skip=skip,
-        limit=limit,
-        challenge_type=challenge_type,
-        status=status,
-        featured_only=featured_only
+    gamification_service = get_gamification_service()
+    challenges = await gamification_service.get_challenges(
+        db, skip=skip, limit=limit, status=status, 
+        challenge_type=challenge_type, featured_only=featured_only
     )
     return challenges
 
@@ -158,10 +153,9 @@ async def get_weekly_challenges(
     current_user: User = Depends(get_current_user)
 ):
     """Get weekly challenges summary for a specific week."""
-    gamification_service = get_gamification_service(db)
-    summary = gamification_service.get_weekly_challenges_summary(
-        user_id=current_user.id,
-        week_offset=week_offset
+    gamification_service = get_gamification_service()
+    summary = await gamification_service.get_weekly_challenges_summary(
+        db, user_id=current_user.id, week_offset=week_offset
     )
     return summary
 
@@ -173,8 +167,8 @@ async def get_challenge_details(
     current_user: User = Depends(get_current_user)
 ):
     """Get detailed information about a specific challenge."""
-    gamification_service = get_gamification_service(db)
-    challenge = gamification_service.get_challenge_by_id(challenge_id)
+    gamification_service = get_gamification_service()
+    challenge = await gamification_service.get_challenge_by_id(db, challenge_id)
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     return challenge
@@ -189,12 +183,9 @@ async def get_user_challenges(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's challenge participations."""
-    gamification_service = get_gamification_service(db)
-    participations = gamification_service.get_user_challenge_participations(
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        completed_only=completed_only
+    gamification_service = get_gamification_service()
+    participations = await gamification_service.get_user_challenge_participations(
+        db, user_id=current_user.id, completed_only=completed_only if completed_only else None
     )
     return participations
 
@@ -206,12 +197,11 @@ async def join_challenge(
     current_user: User = Depends(get_current_user)
 ):
     """Join a challenge."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     try:
-        participation = gamification_service.join_challenge(
-            user_id=current_user.id,
-            challenge_id=challenge_id
+        participation = await gamification_service.join_challenge(
+            db, user_id=current_user.id, challenge_id=challenge_id
         )
         return ChallengeJoinResponse(
             success=True,
@@ -231,13 +221,14 @@ async def leave_challenge(
     current_user: User = Depends(get_current_user)
 ):
     """Leave a challenge."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     try:
-        gamification_service.leave_challenge(
-            user_id=current_user.id,
-            challenge_id=challenge_id
+        success = await gamification_service.leave_challenge(
+            db, user_id=current_user.id, challenge_id=challenge_id
         )
+        if not success:
+            raise HTTPException(status_code=404, detail="Challenge participation not found")
         return GamificationSystemResponse(
             success=True,
             message="Successfully left challenge"
@@ -254,8 +245,8 @@ async def create_challenge(
 ):
     """Create a new challenge (admin only)."""
     # TODO: Add admin permission check
-    gamification_service = get_gamification_service(db)
-    challenge = gamification_service.create_challenge(challenge_data.model_dump())
+    gamification_service = get_gamification_service()
+    challenge = await gamification_service.create_challenge(db, challenge_data.model_dump())
     return challenge
 
 
@@ -265,8 +256,8 @@ async def get_user_streaks(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's streaks."""
-    gamification_service = get_gamification_service(db)
-    streaks = gamification_service.get_user_streaks(current_user.id)
+    gamification_service = get_gamification_service()
+    streaks = await gamification_service.get_user_streaks(db, user_id=current_user.id)
     return streaks
 
 
@@ -279,19 +270,22 @@ async def update_streak(
     current_user: User = Depends(get_current_user)
 ):
     """Update a specific streak type for the user."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     try:
         # Update streak in background for better performance
         background_tasks.add_task(
             gamification_service.update_streak,
-            user_id=current_user.id,
-            streak_type=streak_type,
-            activity_date=streak_data.activity_date
+            db,
+            current_user.id,
+            streak_type,
+            streak_data.activity_date
         )
         
         # Return current streak immediately
-        streak = gamification_service.get_user_streak(current_user.id, streak_type)
+        streak = await gamification_service.get_user_streak(db, current_user.id, streak_type)
+        if not streak:
+            raise HTTPException(status_code=404, detail="Streak not found")
         return streak
         
     except ValueError as e:
@@ -305,8 +299,8 @@ async def get_points_balance(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's points balance."""
-    gamification_service = get_gamification_service(db)
-    stats = gamification_service.get_user_stats(current_user.id)
+    gamification_service = get_gamification_service()
+    stats = await gamification_service.get_user_stats(db, current_user.id)
     return {
         "total_points": stats.get("total_points", 0),
         "available_points": stats.get("available_points", 0)
@@ -322,12 +316,9 @@ async def get_point_transactions(
     current_user: User = Depends(get_current_user)
 ):
     """Get user's point transaction history."""
-    gamification_service = get_gamification_service(db)
-    transactions = gamification_service.get_point_transactions(
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        transaction_type=transaction_type
+    gamification_service = get_gamification_service()
+    transactions = await gamification_service.get_point_transactions(
+        db, user_id=current_user.id, skip=skip, limit=limit, transaction_type=transaction_type
     )
     return transactions
 
@@ -340,11 +331,12 @@ async def award_points(
     current_user: User = Depends(get_current_user)
 ):
     """Award points to user for an activity."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     try:
-        # Award points and check for achievements in background
-        transaction = gamification_service.award_points(
+        # Award points
+        points_awarded, level_up = await gamification_service.award_points(
+            db,
             user_id=current_user.id,
             activity_type=points_data.activity_type,
             points=points_data.points,
@@ -355,11 +347,14 @@ async def award_points(
         # Check for badge achievements in background
         background_tasks.add_task(
             gamification_service.check_and_award_badges,
-            user_id=current_user.id,
-            activity_type=points_data.activity_type
+            db,
+            current_user.id,
+            points_data.activity_type
         )
         
-        return transaction
+        # Get the transaction record
+        transactions = await gamification_service.get_point_transactions(db, current_user.id, limit=1)
+        return transactions[0] if transactions else None
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -372,8 +367,8 @@ async def get_leaderboards(
     current_user: User = Depends(get_current_user)
 ):
     """Get all available leaderboards."""
-    gamification_service = get_gamification_service(db)
-    leaderboards = gamification_service.get_leaderboards()
+    gamification_service = get_gamification_service()
+    leaderboards = await gamification_service.get_leaderboards(db)
     return leaderboards
 
 
@@ -386,11 +381,9 @@ async def get_leaderboard_entries(
     current_user: User = Depends(get_current_user)
 ):
     """Get leaderboard entries."""
-    gamification_service = get_gamification_service(db)
-    entries = gamification_service.get_leaderboard_entries(
-        leaderboard_id=leaderboard_id,
-        skip=skip,
-        limit=limit
+    gamification_service = get_gamification_service()
+    entries = await gamification_service.get_leaderboard_entries(
+        db, leaderboard_id=leaderboard_id, skip=skip, limit=limit
     )
     return entries
 
@@ -402,10 +395,9 @@ async def get_my_leaderboard_position(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's position in a specific leaderboard."""
-    gamification_service = get_gamification_service(db)
-    entry = gamification_service.get_user_leaderboard_position(
-        user_id=current_user.id,
-        leaderboard_id=leaderboard_id
+    gamification_service = get_gamification_service()
+    entry = await gamification_service.get_user_leaderboard_position(
+        db, user_id=current_user.id, leaderboard_id=leaderboard_id
     )
     if not entry:
         raise HTTPException(status_code=404, detail="User not found in leaderboard")
@@ -419,8 +411,10 @@ async def get_user_level(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's level and progression."""
-    gamification_service = get_gamification_service(db)
-    level = gamification_service.get_user_level(current_user.id)
+    gamification_service = get_gamification_service()
+    level = await gamification_service.get_user_level(db, current_user.id)
+    if not level:
+        raise HTTPException(status_code=404, detail="User level not found. Please initialize gamification first.")
     return level
 
 
@@ -431,16 +425,19 @@ async def update_user_level(
     current_user: User = Depends(get_current_user)
 ):
     """Recalculate and update user's level progression."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     # Update level progression in background
     background_tasks.add_task(
         gamification_service.update_user_level,
-        user_id=current_user.id
+        db,
+        current_user.id
     )
     
     # Return current level immediately
-    level = gamification_service.get_user_level(current_user.id)
+    level = await gamification_service.get_user_level(db, current_user.id)
+    if not level:
+        raise HTTPException(status_code=404, detail="User level not found")
     return level
 
 
@@ -450,8 +447,8 @@ async def get_gamification_stats(
     current_user: User = Depends(get_current_user)
 ):
     """Get comprehensive gamification statistics for the user."""
-    gamification_service = get_gamification_service(db)
-    stats = gamification_service.get_comprehensive_stats(current_user.id)
+    gamification_service = get_gamification_service()
+    stats = await gamification_service.get_comprehensive_stats(db, current_user.id)
     return stats
 
 
@@ -461,8 +458,8 @@ async def get_gamification_dashboard(
     current_user: User = Depends(get_current_user)
 ):
     """Get gamification dashboard data."""
-    gamification_service = get_gamification_service(db)
-    dashboard = gamification_service.get_dashboard_data(current_user.id)
+    gamification_service = get_gamification_service()
+    dashboard = await gamification_service.get_dashboard_data(db, current_user.id)
     return dashboard
 
 
@@ -475,12 +472,9 @@ async def get_activity_feed(
     current_user: User = Depends(get_current_user)
 ):
     """Get user's gamification activity feed."""
-    gamification_service = get_gamification_service(db)
-    activity_feed = gamification_service.get_activity_feed(
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        activity_type=activity_type
+    gamification_service = get_gamification_service()
+    activity_feed = await gamification_service.get_activity_feed(
+        db, user_id=current_user.id, skip=skip, limit=limit, activity_type=activity_type
     )
     return activity_feed
 
@@ -492,10 +486,10 @@ async def initialize_user_gamification(
     current_user: User = Depends(get_current_user)
 ):
     """Initialize gamification system for the current user."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     try:
-        gamification_service.initialize_user(current_user.id)
+        await gamification_service.initialize_user(db, current_user.id)
         return GamificationSystemResponse(
             success=True,
             message="Gamification system initialized successfully"
@@ -511,12 +505,13 @@ async def refresh_user_achievements(
     current_user: User = Depends(get_current_user)
 ):
     """Refresh and recalculate user's achievements, badges, and progress."""
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     # Refresh achievements in background
     background_tasks.add_task(
         gamification_service.refresh_user_achievements,
-        user_id=current_user.id
+        db,
+        current_user.id
     )
     
     return GamificationSystemResponse(
@@ -537,13 +532,14 @@ async def activity_hook(
     Hook for other services to trigger gamification events.
     Called when users complete activities (CV updates, project uploads, etc.)
     """
-    gamification_service = get_gamification_service(db)
+    gamification_service = get_gamification_service()
     
     # Process gamification events in background
     background_tasks.add_task(
         gamification_service.process_activity_event,
-        user_id=current_user.id,
-        activity_data=activity_data
+        db,
+        current_user.id,
+        activity_data
     )
     
     return GamificationSystemResponse(

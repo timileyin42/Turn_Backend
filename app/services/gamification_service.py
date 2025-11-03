@@ -590,6 +590,683 @@ class GamificationService:
             
         except Exception as e:
             raise e
+    
+    async def get_all_badges(
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+        badge_type: Optional[BadgeType] = None,
+        rarity: Optional[BadgeRarity] = None
+    ) -> List[BadgeResponse]:
+        """Get all available badges with optional filters."""
+        try:
+            query = select(Badge).where(Badge.is_active == True)
+            
+            if badge_type:
+                query = query.where(Badge.badge_type == badge_type)
+            if rarity:
+                query = query.where(Badge.rarity == rarity)
+            
+            query = query.offset(skip).limit(limit)
+            
+            result = await db.execute(query)
+            badges = result.scalars().all()
+            
+            return [BadgeResponse.model_validate(badge) for badge in badges]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_badge_by_id(
+        self,
+        db: AsyncSession,
+        badge_id: int
+    ) -> Optional[BadgeResponse]:
+        """Get a specific badge by ID."""
+        try:
+            result = await db.execute(
+                select(Badge).where(Badge.id == badge_id)
+            )
+            badge = result.scalar_one_or_none()
+            
+            if badge:
+                return BadgeResponse.model_validate(badge)
+            return None
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_badges(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        earned_only: bool = True
+    ) -> List[UserBadgeResponse]:
+        """Get all badges for a user."""
+        try:
+            query = select(UserBadge).options(
+                selectinload(UserBadge.badge)
+            ).where(UserBadge.user_id == user_id)
+            
+            if earned_only:
+                query = query.where(UserBadge.is_completed == True)
+            
+            result = await db.execute(query)
+            user_badges = result.scalars().all()
+            
+            return [UserBadgeResponse.model_validate(ub) for ub in user_badges]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_badge_progress(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        badge_id: Optional[int] = None
+    ) -> List[UserBadgeResponse]:
+        """Get badge progress for a user."""
+        try:
+            query = select(UserBadge).options(
+                selectinload(UserBadge.badge)
+            ).where(
+                and_(
+                    UserBadge.user_id == user_id,
+                    UserBadge.is_completed == False
+                )
+            )
+            
+            if badge_id:
+                query = query.where(UserBadge.badge_id == badge_id)
+            
+            result = await db.execute(query)
+            badges_in_progress = result.scalars().all()
+            
+            return [UserBadgeResponse.model_validate(ub) for ub in badges_in_progress]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_challenges(
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[ChallengeStatus] = None,
+        challenge_type: Optional[ChallengeType] = None,
+        featured_only: bool = False
+    ) -> List[ChallengeResponse]:
+        """Get all challenges with optional filters."""
+        try:
+            query = select(Challenge)
+            
+            if status:
+                query = query.where(Challenge.status == status)
+            else:
+                query = query.where(Challenge.status == ChallengeStatus.ACTIVE)
+            
+            if challenge_type:
+                query = query.where(Challenge.challenge_type == challenge_type)
+            
+            if featured_only:
+                query = query.where(Challenge.is_featured == True)
+            
+            query = query.offset(skip).limit(limit).order_by(desc(Challenge.created_at))
+            
+            result = await db.execute(query)
+            challenges = result.scalars().all()
+            
+            return [ChallengeResponse.model_validate(c) for c in challenges]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_challenge_by_id(
+        self,
+        db: AsyncSession,
+        challenge_id: int
+    ) -> Optional[ChallengeResponse]:
+        """Get a specific challenge by ID."""
+        try:
+            result = await db.execute(
+                select(Challenge).where(Challenge.id == challenge_id)
+            )
+            challenge = result.scalar_one_or_none()
+            
+            if challenge:
+                return ChallengeResponse.model_validate(challenge)
+            return None
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_challenge_participations(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        completed_only: Optional[bool] = None
+    ) -> List[ChallengeParticipationResponse]:
+        """Get user's challenge participations."""
+        try:
+            query = select(GameChallengeParticipation).options(
+                selectinload(GameChallengeParticipation.challenge)
+            ).where(GameChallengeParticipation.user_id == user_id)
+            
+            if completed_only is not None:
+                query = query.where(GameChallengeParticipation.is_completed == completed_only)
+            
+            result = await db.execute(query)
+            participations = result.scalars().all()
+            
+            return [ChallengeParticipationResponse.model_validate(p) for p in participations]
+            
+        except Exception as e:
+            raise e
+    
+    async def leave_challenge(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        challenge_id: int
+    ) -> bool:
+        """Remove user from a challenge."""
+        try:
+            result = await db.execute(
+                select(GameChallengeParticipation).where(
+                    and_(
+                        GameChallengeParticipation.user_id == user_id,
+                        GameChallengeParticipation.challenge_id == challenge_id
+                    )
+                )
+            )
+            participation = result.scalar_one_or_none()
+            
+            if not participation:
+                return False
+            
+            # Update challenge participant count
+            challenge_result = await db.execute(
+                select(Challenge).where(Challenge.id == challenge_id)
+            )
+            challenge = challenge_result.scalar_one_or_none()
+            if challenge and challenge.total_participants > 0:
+                challenge.total_participants -= 1
+            
+            await db.delete(participation)
+            await db.commit()
+            
+            return True
+            
+        except Exception as e:
+            await db.rollback()
+            raise e
+    
+    async def get_user_streaks(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        streak_type: Optional[StreakType] = None
+    ) -> List[StreakResponse]:
+        """Get user's streaks."""
+        try:
+            query = select(UserStreak).where(UserStreak.user_id == user_id)
+            
+            if streak_type:
+                query = query.where(UserStreak.streak_type == streak_type)
+            
+            result = await db.execute(query)
+            streaks = result.scalars().all()
+            
+            return [StreakResponse.model_validate(s) for s in streaks]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_point_transactions(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 100,
+        transaction_type: Optional[str] = None
+    ) -> List[PointTransactionResponse]:
+        """Get user's point transaction history."""
+        try:
+            query = select(PointTransaction).where(
+                PointTransaction.user_id == user_id
+            )
+            
+            if transaction_type:
+                query = query.where(PointTransaction.transaction_type == transaction_type)
+            
+            query = query.order_by(desc(PointTransaction.created_at)).offset(skip).limit(limit)
+            
+            result = await db.execute(query)
+            transactions = result.scalars().all()
+            
+            return [PointTransactionResponse.model_validate(t) for t in transactions]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_leaderboards(
+        self,
+        db: AsyncSession
+    ) -> List[LeaderboardResponse]:
+        """Get all available leaderboards."""
+        try:
+            result = await db.execute(
+                select(Leaderboard).where(Leaderboard.is_active == True)
+            )
+            leaderboards = result.scalars().all()
+            
+            return [LeaderboardResponse.model_validate(lb) for lb in leaderboards]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_leaderboard_entries(
+        self,
+        db: AsyncSession,
+        leaderboard_id: int,
+        skip: int = 0,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get leaderboard entries with user details."""
+        try:
+            query = select(LeaderboardEntry).options(
+                selectinload(LeaderboardEntry.user)
+            ).where(
+                LeaderboardEntry.leaderboard_id == leaderboard_id
+            ).order_by(asc(LeaderboardEntry.rank)).offset(skip).limit(limit)
+            
+            result = await db.execute(query)
+            entries = result.scalars().all()
+            
+            return [
+                {
+                    "rank": entry.rank,
+                    "user_id": entry.user_id,
+                    "username": entry.user.username if entry.user else "Unknown",
+                    "score": entry.score,
+                    "points": entry.points,
+                    "level": entry.level
+                }
+                for entry in entries
+            ]
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_leaderboard_position(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        leaderboard_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """Get user's position in a specific leaderboard."""
+        try:
+            result = await db.execute(
+                select(LeaderboardEntry).options(
+                    selectinload(LeaderboardEntry.user)
+                ).where(
+                    and_(
+                        LeaderboardEntry.leaderboard_id == leaderboard_id,
+                        LeaderboardEntry.user_id == user_id
+                    )
+                )
+            )
+            entry = result.scalar_one_or_none()
+            
+            if not entry:
+                return None
+            
+            return {
+                "rank": entry.rank,
+                "user_id": entry.user_id,
+                "username": entry.user.username if entry.user else "Unknown",
+                "score": entry.score,
+                "points": entry.points,
+                "level": entry.level
+            }
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_level(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ) -> Optional[UserLevelResponse]:
+        """Get user's current level and progression."""
+        try:
+            result = await db.execute(
+                select(UserLevel).where(UserLevel.user_id == user_id)
+            )
+            user_level = result.scalar_one_or_none()
+            
+            if user_level:
+                return UserLevelResponse.model_validate(user_level)
+            return None
+            
+        except Exception as e:
+            raise e
+    
+    async def create_badge(
+        self,
+        db: AsyncSession,
+        badge_data: Dict[str, Any]
+    ) -> BadgeResponse:
+        """Create a new badge."""
+        try:
+            badge = Badge(**badge_data)
+            db.add(badge)
+            await db.commit()
+            await db.refresh(badge)
+            
+            return BadgeResponse.model_validate(badge)
+            
+        except Exception as e:
+            await db.rollback()
+            raise e
+    
+    async def get_weekly_challenges_summary(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        week_offset: int = 0
+    ) -> Dict[str, Any]:
+        """Get weekly challenges summary."""
+        try:
+            from datetime import timedelta
+            
+            # Calculate week start/end dates
+            today = date.today()
+            week_start = today - timedelta(days=today.weekday() + (week_offset * 7))
+            week_end = week_start + timedelta(days=6)
+            
+            # Get challenges for the week
+            result = await db.execute(
+                select(Challenge).where(
+                    and_(
+                        Challenge.status == ChallengeStatus.ACTIVE,
+                        Challenge.start_date >= week_start,
+                        Challenge.start_date <= week_end
+                    )
+                )
+            )
+            challenges = result.scalars().all()
+            
+            # Get user participations
+            participation_result = await db.execute(
+                select(GameChallengeParticipation).where(
+                    and_(
+                        GameChallengeParticipation.user_id == user_id,
+                        GameChallengeParticipation.challenge_id.in_([c.id for c in challenges])
+                    )
+                )
+            )
+            participations = participation_result.scalars().all()
+            participation_map = {p.challenge_id: p for p in participations}
+            
+            return {
+                "week_start": week_start,
+                "week_end": week_end,
+                "total_challenges": len(challenges),
+                "completed_challenges": len([p for p in participations if p.is_completed]),
+                "active_challenges": len([p for p in participations if not p.is_completed]),
+                "challenges": [
+                    {
+                        **ChallengeResponse.model_validate(c).model_dump(),
+                        "participation": ChallengeParticipationResponse.model_validate(
+                            participation_map[c.id]
+                        ).model_dump() if c.id in participation_map else None
+                    }
+                    for c in challenges
+                ]
+            }
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_streak(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        streak_type: StreakType
+    ) -> Optional[StreakResponse]:
+        """Get a specific user streak."""
+        try:
+            result = await db.execute(
+                select(UserStreak).where(
+                    and_(
+                        UserStreak.user_id == user_id,
+                        UserStreak.streak_type == streak_type
+                    )
+                )
+            )
+            streak = result.scalar_one_or_none()
+            
+            if streak:
+                return StreakResponse.model_validate(streak)
+            return None
+            
+        except Exception as e:
+            raise e
+    
+    async def get_user_stats(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ) -> Dict[str, Any]:
+        """Get basic user stats (points balance)."""
+        try:
+            result = await db.execute(
+                select(UserPoints).where(UserPoints.user_id == user_id)
+            )
+            user_points = result.scalar_one_or_none()
+            
+            if not user_points:
+                return {
+                    "total_points": 0,
+                    "available_points": 0,
+                    "lifetime_points": 0,
+                    "current_level": 1
+                }
+            
+            return {
+                "total_points": user_points.total_points,
+                "available_points": user_points.available_points,
+                "lifetime_points": user_points.lifetime_points,
+                "current_level": user_points.current_level,
+                "current_streak": user_points.current_streak,
+                "longest_streak": user_points.longest_streak
+            }
+            
+        except Exception as e:
+            raise e
+    
+    async def check_and_award_badges(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        activity_type: str
+    ):
+        """Check and award badges based on activity type."""
+        try:
+            # This would contain logic to check various badge criteria
+            # based on the activity type and award appropriate badges
+            # For now, this is a placeholder for the background task
+            pass
+            
+        except Exception as e:
+            raise e
+    
+    async def update_user_level(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ):
+        """Update user level based on current points."""
+        try:
+            # Get user points
+            result = await db.execute(
+                select(UserPoints).where(UserPoints.user_id == user_id)
+            )
+            user_points = result.scalar_one_or_none()
+            
+            if user_points:
+                await self._check_level_progression(db, user_id, user_points)
+                await db.commit()
+                
+        except Exception as e:
+            await db.rollback()
+            raise e
+    
+    async def get_comprehensive_stats(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ) -> GamificationStatsResponse:
+        """Get comprehensive gamification statistics."""
+        return await self.get_user_gamification_stats(db, user_id)
+    
+    async def get_dashboard_data(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ) -> Dict[str, Any]:
+        """Get gamification dashboard data."""
+        try:
+            # Get comprehensive stats
+            stats = await self.get_user_gamification_stats(db, user_id)
+            
+            # Get recent challenges
+            challenges = await self.get_challenges(db, limit=5, status=ChallengeStatus.ACTIVE)
+            
+            # Get user participations
+            participations = await self.get_user_challenge_participations(
+                db, user_id, completed_only=False
+            )
+            
+            # Get recent transactions
+            transactions = await self.get_point_transactions(db, user_id, limit=10)
+            
+            return {
+                "stats": stats.model_dump(),
+                "featured_challenges": [c.model_dump() for c in challenges[:3]],
+                "active_participations": [p.model_dump() for p in participations[:5]],
+                "recent_transactions": [t.model_dump() for t in transactions[:5]]
+            }
+            
+        except Exception as e:
+            raise e
+    
+    async def get_activity_feed(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 50,
+        activity_type: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get user's gamification activity feed."""
+        try:
+            # Get point transactions as activity feed
+            transactions = await self.get_point_transactions(
+                db, user_id, skip, limit, activity_type
+            )
+            
+            # Get recently earned badges
+            badges_result = await db.execute(
+                select(UserBadge).options(
+                    selectinload(UserBadge.badge)
+                ).where(
+                    and_(
+                        UserBadge.user_id == user_id,
+                        UserBadge.is_completed == True
+                    )
+                ).order_by(desc(UserBadge.earned_at)).limit(10)
+            )
+            recent_badges = badges_result.scalars().all()
+            
+            return {
+                "transactions": [t.model_dump() for t in transactions],
+                "recent_badges": [
+                    {
+                        "badge_name": ub.badge.name,
+                        "badge_description": ub.badge.description,
+                        "earned_at": ub.earned_at,
+                        "rarity": ub.badge.rarity.value
+                    }
+                    for ub in recent_badges
+                ],
+                "total_activities": len(transactions) + len(recent_badges)
+            }
+            
+        except Exception as e:
+            raise e
+    
+    async def initialize_user(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ) -> Dict[str, Any]:
+        """Initialize gamification for a user."""
+        return await self.initialize_user_gamification(db, user_id)
+    
+    async def refresh_user_achievements(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ):
+        """Refresh user achievements in background."""
+        try:
+            # Recalculate level
+            await self.update_user_level(db, user_id)
+            
+            # Update streaks
+            # This is a placeholder for background refresh logic
+            pass
+            
+        except Exception as e:
+            raise e
+    
+    async def process_activity_event(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        activity_data: Dict[str, Any]
+    ):
+        """Process gamification events from other services."""
+        try:
+            activity_type = activity_data.get("activity_type")
+            
+            # Award points for the activity
+            if activity_type:
+                await self.award_points(
+                    db,
+                    user_id,
+                    activity_type,
+                    points=activity_data.get("points"),
+                    source_id=activity_data.get("source_id"),
+                    description=activity_data.get("description")
+                )
+            
+            # Update relevant streaks
+            if activity_type in ["daily_login", "complete_lesson", "complete_project"]:
+                streak_type_map = {
+                    "daily_login": StreakType.DAILY_LOGIN,
+                    "complete_lesson": StreakType.LEARNING,
+                    "complete_project": StreakType.PROJECT_WORK
+                }
+                streak_type = streak_type_map.get(activity_type)
+                if streak_type:
+                    await self.update_streak(db, user_id, streak_type)
+            
+        except Exception as e:
+            raise e
 
 
 # Create service instance

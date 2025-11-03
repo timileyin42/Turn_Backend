@@ -193,7 +193,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject="Welcome to TURN - Start Building Your Project Management Career!",
+                subject="Welcome to TurnVe - Start Building Your Project Management Career!",
                 html_content=html_content
             )
             
@@ -213,7 +213,11 @@ class EmailService:
     
     async def send_verification_otp(self, email: str, name: str) -> Dict[str, Any]:
         """Send email verification OTP using template"""
-        otp_code = self.generate_otp()
+        from app.services.otp_service import otp_service
+        
+        # Use otp_service to generate and store OTP
+        otp_code = otp_service.generate_otp()
+        otp_service.store_otp(email, otp_code, "verification", expires_in_minutes=10)
         
         try:
             # Render OTP verification template
@@ -230,17 +234,13 @@ class EmailService:
             
             html_content = self.template_service.render_template("otp_verification.html", context)
             
-            # Send via Brevo
+            # Send via Resend
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"Your TURN verification code: {otp_code}",
+                subject=f"Your TurnVe verification code: {otp_code}",
                 html_content=html_content
             )
-            
-            if result["success"]:
-                # Store OTP in cache/database with expiry
-                await self._store_otp(email, otp_code, "verification", expire_minutes=10)
                 
             return {
                 **result,
@@ -258,7 +258,11 @@ class EmailService:
     
     async def send_password_reset_otp(self, email: str, name: str) -> Dict[str, Any]:
         """Send password reset OTP using template"""
-        otp_code = self.generate_otp()
+        from app.services.otp_service import otp_service
+        
+        # Use otp_service to generate and store OTP
+        otp_code = otp_service.generate_otp()
+        otp_service.store_otp(email, otp_code, "reset", expires_in_minutes=10)
         
         try:
             # Render password reset template
@@ -275,17 +279,13 @@ class EmailService:
             
             html_content = self.template_service.render_template("otp_verification.html", context)
             
-            # Send via Brevo
+            # Send via Resend
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"Your TURN password reset code: {otp_code}",
+                subject=f"Your TurnVe password reset code: {otp_code}",
                 html_content=html_content
             )
-            
-            if result["success"]:
-                # Store OTP in cache/database with expiry
-                await self._store_otp(email, otp_code, "password_reset", expire_minutes=10)
                 
             return {
                 **result,
@@ -324,7 +324,7 @@ class EmailService:
             result = await self.send_email(
                 to_email=email,
                 to_name=name,
-                subject=f"Your TURN login code: {otp_code}",
+                subject=f"Your TurnVe login code: {otp_code}",
                 html_content=html_content
             )
             

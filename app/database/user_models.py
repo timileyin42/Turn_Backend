@@ -3,7 +3,7 @@ User-related database models using SQLAlchemy 2.0+.
 """
 from datetime import datetime
 from typing import List, Optional, TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, Text, Integer, ForeignKey, Enum as SQLEnum, Index
+from sqlalchemy import String, Boolean, DateTime, Text, Integer, ForeignKey, Enum as SQLEnum, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -132,6 +132,9 @@ class Profile(Base):
     country: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     city: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    
+    # UI Preferences (language, theme, notifications, privacy)
+    preferences: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     # Profile completion
     is_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
