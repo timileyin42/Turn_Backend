@@ -1,5 +1,5 @@
 """
-Project management service for project CRUD, tasks, and AI coaching integration.
+ProjectSimulation management service for ProjectSimulation CRUD, tasks, and AI coaching integration.
 """
 from datetime import datetime
 from typing import List, Optional, Dict, Any
@@ -9,112 +9,112 @@ from sqlalchemy.orm import selectinload
 
 from app.database.project_models import (
     ProjectSimulation, ProjectTask, ProjectTemplate, ProjectPhase, ProjectArtifact,
-    AiCoachingSession, Project, ProjectCollaborator, AICoachingSession
+    AiCoachingSession, AICoachingSession
 )
+from app.database.user_models import User, UserRole
 from app.schemas.project_schemas import (
     ProjectSimulationCreate, ProjectSimulationUpdate, ProjectSimulationResponse, 
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskResponse,
     ProjectTemplateResponse, AiCoachingSessionCreate, AiCoachingSessionResponse,
     ProjectPhaseCreate, ProjectPhaseUpdate, ProjectPhaseResponse,
     ProjectArtifactCreate, ProjectArtifactResponse,
-    ProjectCreate, ProjectResponse, ProjectUpdate, ProjectListResponse,
-    ProjectSearchRequest, AICoachingSessionCreate, AICoachingSessionResponse,
-    ProjectAnalyticsResponse, ProjectCollaboratorCreate, ProjectCollaboratorResponse
+    ProjectListResponse, ProjectSearchRequest, 
+    AICoachingSessionCreate, AICoachingSessionResponse,
+    ProjectAnalyticsResponse
 )
+from app.services.ai_service import ai_service
 
 
 class ProjectService:
-    """Service for project management and AI coaching operations."""
+    """Service for ProjectSimulation management and AI coaching operations."""
     
     async def create_project(
         self, 
         db: AsyncSession, 
         user_id: int, 
-        project_data: ProjectCreate
-    ) -> ProjectResponse:
+        project_data: ProjectSimulationCreate
+    ) -> ProjectSimulationResponse:
         """
-        Create a new project.
+        Create a new ProjectSimulation.
         
         Args:
             db: Database session
-            user_id: Project owner ID
-            project_data: Project creation data
+            user_id: ProjectSimulation owner ID
+            project_data: ProjectSimulation creation data
             
         Returns:
-            Created project response
+            Created ProjectSimulation response
         """
-        db_project = Project(
-            owner_id=user_id,
-            **project_data.model_dump(),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+        db_project = ProjectSimulation(
+            user_id=user_id,
+            **project_data.model_dump()
         )
         
         db.add(db_project)
         await db.commit()
         await db.refresh(db_project)
         
-        return ProjectResponse.model_validate(db_project)
+        return ProjectSimulationResponse.model_validate(db_project)
     
     async def get_project_by_id(
         self, 
         db: AsyncSession, 
         project_id: int, 
         user_id: int
-    ) -> Optional[ProjectResponse]:
+    ) -> Optional[ProjectSimulationResponse]:
         """
-        Get project by ID with access control.
+        Get ProjectSimulation by ID with access control.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: Requesting user ID
             
         Returns:
-            Project response if user has access
+            ProjectSimulation response if user has access
         """
-        project = await self._get_project_with_access_check(db, project_id, user_id)
-        if not project:
+        ProjectSimulation = await self._get_project_with_access_check(db, project_id, user_id)
+        if not ProjectSimulation:
             return None
         
-        return ProjectResponse.model_validate(project)
+        return ProjectSimulationResponse.model_validate(ProjectSimulation)
     
     async def update_project(
         self, 
         db: AsyncSession, 
         project_id: int, 
         user_id: int, 
-        project_data: ProjectUpdate
-    ) -> Optional[ProjectResponse]:
+        project_data: ProjectSimulationUpdate
+    ) -> Optional[ProjectSimulationResponse]:
         """
-        Update project information.
+        Update ProjectSimulation information.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID (must be owner or collaborator)
-            project_data: Updated project data
+            project_data: Updated ProjectSimulation data
             
         Returns:
-            Updated project response
+            Updated ProjectSimulation response
         """
-        project = await self._get_project_with_access_check(
+        ProjectSimulation = await self._get_project_with_access_check(
             db, project_id, user_id, require_write=True
         )
-        if not project:
+        if not ProjectSimulation:
             return None
         
         # Update fields
         update_data = project_data.model_dump(exclude_unset=True)
         if update_data:
             for field, value in update_data.items():
-                setattr(project, field, value)
+                setattr(ProjectSimulation, field, value)
             
-            project.updated_at = datetime.utcnow()
+            ProjectSimulation.updated_at = datetime.utcnow()
             await db.commit()
-            await db.refresh(project)
+            await db.refresh(ProjectSimulation)
         
-        return ProjectResponse.model_validate(project)
+        return ProjectSimulationResponse.model_validate(ProjectSimulation)
     
     async def delete_project(
         self, 
@@ -123,33 +123,25 @@ class ProjectService:
         user_id: int
     ) -> bool:
         """
-        Delete project (owner only).
+        Delete ProjectSimulation (owner only).
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID (must be owner)
             
         Returns:
-            True if project was deleted
+            True if ProjectSimulation was deleted
         """
-        # Check if user is owner
-        result = await db.execute(
-            select(Project).where(
-                and_(
-                    Project.id == project_id,
-                    Project.owner_id == user_id
-                )
-            )
+        project = await self._get_project_with_access_check(
+            db, project_id, user_id, require_write=True
         )
-        project = result.scalar_one_or_none()
-        
-        if project:
-            await db.delete(project)
-            await db.commit()
-            return True
-        
-        return False
+        if not project:
+            return False
+
+        await db.delete(project)
+        await db.commit()
+        return True
     
     async def get_user_projects(
         self, 
@@ -168,25 +160,20 @@ class ProjectService:
             limit: Maximum number of records
             
         Returns:
-            Paginated project list
+            Paginated ProjectSimulation list
         """
-        # Projects owned by user or where user is collaborator
-        query = select(Project).options(
-            selectinload(Project.tasks),
-            selectinload(Project.collaborators)
+        # Projects owned by user
+        query = select(ProjectSimulation).options(
+            selectinload(ProjectSimulation.phases),
+            selectinload(ProjectSimulation.artifacts),
+            selectinload(ProjectSimulation.ai_sessions)
         ).where(
-            or_(
-                Project.owner_id == user_id,
-                Project.collaborators.any(ProjectCollaborator.user_id == user_id)
-            )
-        ).order_by(desc(Project.updated_at))
+            ProjectSimulation.user_id == user_id
+        ).order_by(desc(ProjectSimulation.updated_at))
         
         # Count total
-        count_query = select(func.count(Project.id)).where(
-            or_(
-                Project.owner_id == user_id,
-                Project.collaborators.any(ProjectCollaborator.user_id == user_id)
-            )
+        count_query = select(func.count(ProjectSimulation.id)).where(
+            ProjectSimulation.user_id == user_id
         )
         total_result = await db.execute(count_query)
         total = total_result.scalar()
@@ -196,15 +183,15 @@ class ProjectService:
         result = await db.execute(query)
         projects = result.scalars().all()
         
-        project_responses = [ProjectResponse.model_validate(p) for p in projects]
-        
-        return ProjectListResponse(
-            projects=project_responses,
-            total=total,
-            page=(skip // limit) + 1,
-            size=limit,
-            pages=(total + limit - 1) // limit
-        )
+        project_responses = [ProjectSimulationResponse.model_validate(p) for p in projects]
+
+        return {
+            "projects": project_responses,
+            "total": total,
+            "page": (skip // limit) + 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit,
+        }
     
     async def search_projects(
         self, 
@@ -225,75 +212,56 @@ class ProjectService:
             limit: Maximum number of records
             
         Returns:
-            Filtered project list
+            Filtered ProjectSimulation list
         """
-        query = select(Project).options(
-            selectinload(Project.tasks),
-            selectinload(Project.collaborators)
+        query = select(ProjectSimulation).options(
+            selectinload(ProjectSimulation.phases),
+            selectinload(ProjectSimulation.artifacts)
         )
         
-        # Base access control
-        access_condition = or_(
-            Project.owner_id == user_id,
-            Project.collaborators.any(ProjectCollaborator.user_id == user_id)
-        )
-        
-        conditions = [access_condition]
+        # Base access control - only owner
+        conditions = [ProjectSimulation.user_id == user_id]
         
         # Apply search filters
         if search_params.query:
-            search_term = f"%{search_params.query}%"
+            search_term = f"%{search_params.query.strip()}%"
             conditions.append(
                 or_(
-                    Project.name.ilike(search_term),
-                    Project.description.ilike(search_term)
+                    ProjectSimulation.title.ilike(search_term),
+                    ProjectSimulation.description.ilike(search_term)
                 )
             )
         
         if search_params.status:
-            conditions.append(Project.status == search_params.status)
-        
-        if search_params.priority:
-            conditions.append(Project.priority == search_params.priority)
-        
-        if search_params.category:
-            conditions.append(Project.category == search_params.category)
-        
-        if search_params.tags:
-            # Check if any of the search tags exist in project tags
-            tag_conditions = []
-            for tag in search_params.tags:
-                tag_conditions.append(Project.tags.contains([tag]))
-            if tag_conditions:
-                conditions.append(or_(*tag_conditions))
+            conditions.append(ProjectSimulation.status == search_params.status)
         
         if search_params.date_from:
-            conditions.append(Project.created_at >= search_params.date_from)
+            conditions.append(ProjectSimulation.created_at >= search_params.date_from)
         
         if search_params.date_to:
-            conditions.append(Project.created_at <= search_params.date_to)
+            conditions.append(ProjectSimulation.created_at <= search_params.date_to)
         
         query = query.where(and_(*conditions))
         
         # Count total
-        count_query = select(func.count(Project.id)).where(and_(*conditions))
+        count_query = select(func.count(ProjectSimulation.id)).where(and_(*conditions))
         total_result = await db.execute(count_query)
         total = total_result.scalar()
         
         # Apply pagination and ordering
-        query = query.order_by(desc(Project.updated_at)).offset(skip).limit(limit)
+        query = query.order_by(desc(ProjectSimulation.updated_at)).offset(skip).limit(limit)
         result = await db.execute(query)
         projects = result.scalars().all()
         
-        project_responses = [ProjectResponse.model_validate(p) for p in projects]
-        
-        return ProjectListResponse(
-            projects=project_responses,
-            total=total,
-            page=(skip // limit) + 1,
-            size=limit,
-            pages=(total + limit - 1) // limit
-        )
+        project_responses = [ProjectSimulationResponse.model_validate(p) for p in projects]
+
+        return {
+            "projects": project_responses,
+            "total": total,
+            "page": (skip // limit) + 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit,
+        }
     
     # Task Management
     
@@ -305,31 +273,69 @@ class ProjectService:
         task_data: ProjectTaskCreate
     ) -> Optional[ProjectTaskResponse]:
         """
-        Create a new task in project.
+        Create a new task in ProjectSimulation.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID
             task_data: Task creation data
             
         Returns:
             Created task response
         """
-        # Check project access
-        project = await self._get_project_with_access_check(
-            db, project_id, user_id, require_write=True
-        )
-        if not project:
-            return None
-        
-        db_task = ProjectTask(
-            project_id=project_id,
-            created_by=user_id,
-            **task_data.model_dump(),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+        is_admin = await self._is_user_admin(db, user_id)
+
+        def _project_filters() -> list:
+            base_filters = [ProjectSimulation.id == project_id]
+            if not is_admin:
+                base_filters.append(ProjectSimulation.user_id == user_id)
+            return base_filters
+
+        # Ensure the phase belongs to the project when explicitly supplied
+        phase = None
+        if task_data.phase_id:
+            phase_conditions = [ProjectPhase.id == task_data.phase_id, *_project_filters()]
+            phase_result = await db.execute(
+                select(ProjectPhase)
+                .join(ProjectSimulation)
+                .where(and_(*phase_conditions))
+            )
+            phase = phase_result.scalar_one_or_none()
+
+        if not phase:
+            # Fallback to the first available phase within the project
+            fallback_result = await db.execute(
+                select(ProjectPhase)
+                .join(ProjectSimulation)
+                .where(and_(*_project_filters()))
+                .order_by(ProjectPhase.order_index)
+            )
+            phase = fallback_result.scalars().first()
+
+        if not phase:
+            # Lazily provision a default phase if the project has none
+            project_exists = await self._check_project_access(db, project_id, user_id)
+            if not project_exists:
+                return None
+
+            max_order_stmt = select(func.max(ProjectPhase.order_index)).where(
+                ProjectPhase.project_id == project_id
+            )
+            current_max_order = (await db.execute(max_order_stmt)).scalar() or -1
+
+            phase = ProjectPhase(
+                project_id=project_id,
+                name="General Phase",
+                description="Auto-generated phase for task management.",
+                order_index=current_max_order + 1,
+            )
+            db.add(phase)
+            await db.flush()
+
+        task_payload = task_data.model_dump()
+        task_payload["phase_id"] = phase.id
+        db_task = ProjectTask(**task_payload)
         
         db.add(db_task)
         await db.commit()
@@ -345,7 +351,7 @@ class ProjectService:
         task_data: ProjectTaskUpdate
     ) -> Optional[ProjectTaskResponse]:
         """
-        Update project task.
+        Update ProjectSimulation task.
         
         Args:
             db: Database session
@@ -356,20 +362,22 @@ class ProjectService:
         Returns:
             Updated task response
         """
-        # Get task with project access check
-        result = await db.execute(
-            select(ProjectTask)
-            .join(Project)
+        # Get task with ProjectSimulation access check
+        task_result = await db.execute(
+            select(ProjectTask, ProjectPhase.project_id)
+            .join(ProjectPhase, ProjectTask.phase_id == ProjectPhase.id)
             .where(ProjectTask.id == task_id)
         )
-        task = result.scalar_one_or_none()
-        
-        if not task:
+        row = task_result.first()
+
+        if not row:
             return None
-        
-        # Check project access
+
+        task, task_project_id = row
+
+        # Check ProjectSimulation access
         project_access = await self._check_project_access(
-            db, task.project_id, user_id, require_write=True
+            db, task_project_id, user_id, require_write=True
         )
         if not project_access:
             return None
@@ -393,23 +401,24 @@ class ProjectService:
         user_id: int
     ) -> List[ProjectTaskResponse]:
         """
-        Get all tasks for a project.
+        Get all tasks for a ProjectSimulation.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID
             
         Returns:
-            List of project tasks
+            List of ProjectSimulation tasks
         """
-        # Check project access
+        # Check ProjectSimulation access
         if not await self._check_project_access(db, project_id, user_id):
             return []
         
         result = await db.execute(
             select(ProjectTask)
-            .where(ProjectTask.project_id == project_id)
+            .join(ProjectPhase, ProjectTask.phase_id == ProjectPhase.id)
+            .where(ProjectPhase.project_id == project_id)
             .order_by(ProjectTask.created_at)
         )
         tasks = result.scalars().all()
@@ -426,25 +435,34 @@ class ProjectService:
         session_data: AICoachingSessionCreate
     ) -> Optional[AICoachingSessionResponse]:
         """
-        Create AI coaching session for project.
+        Create AI coaching session for ProjectSimulation.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID
             session_data: Session data
             
         Returns:
             Created AI coaching session
         """
-        # Check project access
+        # Check ProjectSimulation access
         if not await self._check_project_access(db, project_id, user_id):
             return None
         
+        session_payload = session_data.model_dump(exclude={"project_id"}, exclude_none=True)
+
+        if not session_payload.get("ai_response"):
+            generated_response = await ai_service.generate_project_coaching_response(
+                session_type=session_payload.get("session_type", "coaching"),
+                topic=session_payload.get("topic"),
+                user_input=session_payload.get("user_input"),
+            )
+            session_payload["ai_response"] = generated_response
+
         db_session = AICoachingSession(
             project_id=project_id,
-            user_id=user_id,
-            **session_data.model_dump(),
+            **session_payload,
             created_at=datetime.utcnow()
         )
         
@@ -461,17 +479,17 @@ class ProjectService:
         user_id: int
     ) -> List[AICoachingSessionResponse]:
         """
-        Get AI coaching sessions for project.
+        Get AI coaching sessions for ProjectSimulation.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID
             
         Returns:
             List of AI coaching sessions
         """
-        # Check project access
+        # Check ProjectSimulation access
         if not await self._check_project_access(db, project_id, user_id):
             return []
         
@@ -484,7 +502,7 @@ class ProjectService:
         
         return [AICoachingSessionResponse.model_validate(session) for session in sessions]
     
-    # Project Analytics
+    # ProjectSimulation Analytics
     
     async def get_project_analytics(
         self, 
@@ -493,50 +511,55 @@ class ProjectService:
         user_id: int
     ) -> Optional[ProjectAnalyticsResponse]:
         """
-        Get project analytics and statistics.
+        Get ProjectSimulation analytics and statistics.
         
         Args:
             db: Database session
-            project_id: Project ID
+            project_id: ProjectSimulation ID
             user_id: User ID
             
         Returns:
-            Project analytics data
+            ProjectSimulation analytics data
         """
-        # Check project access
+        # Check ProjectSimulation access
         if not await self._check_project_access(db, project_id, user_id):
             return None
         
-        # Get project with tasks
+        # Get ProjectSimulation with tasks
         result = await db.execute(
-            select(Project)
-            .options(selectinload(Project.tasks))
-            .where(Project.id == project_id)
+            select(ProjectSimulation)
+            .options(
+                selectinload(ProjectSimulation.phases).selectinload(ProjectPhase.tasks)
+            )
+            .where(ProjectSimulation.id == project_id)
         )
         project = result.scalar_one_or_none()
         
         if not project:
             return None
         
-        # Calculate analytics
-        total_tasks = len(project.tasks)
-        completed_tasks = len([t for t in project.tasks if t.status == "completed"])
-        in_progress_tasks = len([t for t in project.tasks if t.status == "in_progress"])
-        pending_tasks = len([t for t in project.tasks if t.status == "pending"])
-        
-        completion_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
-        
-        # Calculate project duration
+        # Flatten tasks across phases
+        tasks = [task for phase in project.phases for task in phase.tasks]
+
+        total_tasks = len(tasks)
+        completed_tasks = sum(1 for task in tasks if task.is_completed)
+        in_progress_tasks = sum(
+            1 for task in tasks if not task.is_completed and task.actual_hours not in (None, 0)
+        )
+        pending_tasks = total_tasks - completed_tasks - in_progress_tasks
+
+        completion_rate = (completed_tasks / total_tasks * 100.0) if total_tasks else 0.0
+
         project_duration = None
-        if project.end_date and project.start_date:
-            project_duration = (project.end_date - project.start_date).days
+        if project.started_at and project.completed_at:
+            project_duration = (project.completed_at - project.started_at).days
         
         return ProjectAnalyticsResponse(
             project_id=project_id,
             total_tasks=total_tasks,
             completed_tasks=completed_tasks,
-            in_progress_tasks=in_progress_tasks,
-            pending_tasks=pending_tasks,
+            in_progress_tasks=max(in_progress_tasks, 0),
+            pending_tasks=max(pending_tasks, 0),
             completion_rate=completion_rate,
             project_duration_days=project_duration,
             created_at=project.created_at,
@@ -545,63 +568,9 @@ class ProjectService:
     
     # Collaboration
     
-    async def add_collaborator(
-        self, 
-        db: AsyncSession, 
-        project_id: int, 
-        owner_id: int, 
-        collaborator_data: ProjectCollaboratorCreate
-    ) -> Optional[ProjectCollaboratorResponse]:
-        """
-        Add collaborator to project (owner only).
-        
-        Args:
-            db: Database session
-            project_id: Project ID
-            owner_id: Project owner ID
-            collaborator_data: Collaborator data
-            
-        Returns:
-            Created collaborator response
-        """
-        # Check if user is project owner
-        result = await db.execute(
-            select(Project).where(
-                and_(
-                    Project.id == project_id,
-                    Project.owner_id == owner_id
-                )
-            )
-        )
-        project = result.scalar_one_or_none()
-        
-        if not project:
-            return None
-        
-        # Check if user is already a collaborator
-        existing = await db.execute(
-            select(ProjectCollaborator).where(
-                and_(
-                    ProjectCollaborator.project_id == project_id,
-                    ProjectCollaborator.user_id == collaborator_data.user_id
-                )
-            )
-        )
-        
-        if existing.scalar_one_or_none():
-            raise ValueError("User is already a collaborator on this project")
-        
-        db_collaborator = ProjectCollaborator(
-            project_id=project_id,
-            **collaborator_data.model_dump(),
-            added_at=datetime.utcnow()
-        )
-        
-        db.add(db_collaborator)
-        await db.commit()
-        await db.refresh(db_collaborator)
-        
-        return ProjectCollaboratorResponse.model_validate(db_collaborator)
+    # Collaboration features not yet implemented
+    # async def add_collaborator(...): 
+    #     pass
     
     # Helper methods
     
@@ -611,27 +580,23 @@ class ProjectService:
         project_id: int, 
         user_id: int,
         require_write: bool = False
-    ) -> Optional[Project]:
-        """Get project with access control."""
+    ) -> Optional[ProjectSimulation]:
+        """Get ProjectSimulation with access control (owner only)."""
+        is_admin = await self._is_user_admin(db, user_id)
+        conditions = [ProjectSimulation.id == project_id]
+        if not is_admin:
+            conditions.append(ProjectSimulation.user_id == user_id)
+
         result = await db.execute(
-            select(Project)
+            select(ProjectSimulation)
             .options(
-                selectinload(Project.tasks),
-                selectinload(Project.collaborators)
+                selectinload(ProjectSimulation.phases),
+                selectinload(ProjectSimulation.artifacts)
             )
-            .where(Project.id == project_id)
+            .where(and_(*conditions))
         )
         project = result.scalar_one_or_none()
-        
-        if not project:
-            return None
-        
-        # Check access
-        has_access = await self._check_project_access(
-            db, project_id, user_id, require_write
-        )
-        
-        return project if has_access else None
+        return project
     
     async def _check_project_access(
         self, 
@@ -640,45 +605,30 @@ class ProjectService:
         user_id: int,
         require_write: bool = False
     ) -> bool:
-        """Check if user has access to project."""
+        """Check if user has access to ProjectSimulation (owner only)."""
+        is_admin = await self._is_user_admin(db, user_id)
+        conditions = [ProjectSimulation.id == project_id]
+        if not is_admin:
+            conditions.append(ProjectSimulation.user_id == user_id)
+
         result = await db.execute(
-            select(Project)
-            .outerjoin(ProjectCollaborator)
-            .where(
-                and_(
-                    Project.id == project_id,
-                    or_(
-                        Project.owner_id == user_id,
-                        ProjectCollaborator.user_id == user_id
-                    )
-                )
-            )
+            select(ProjectSimulation).where(and_(*conditions))
         )
         project = result.scalar_one_or_none()
-        
-        if not project:
+
+        return project is not None
+
+    async def _is_user_admin(self, db: AsyncSession, user_id: int) -> bool:
+        """Check whether the given user has admin privileges."""
+        if user_id is None:
             return False
-        
-        # If write access required, check permissions
-        if require_write:
-            # Owner always has write access
-            if project.owner_id == user_id:
-                return True
-            
-            # Check collaborator permissions
-            collab_result = await db.execute(
-                select(ProjectCollaborator).where(
-                    and_(
-                        ProjectCollaborator.project_id == project_id,
-                        ProjectCollaborator.user_id == user_id,
-                        ProjectCollaborator.permission_level.in_(["editor", "admin"])
-                    )
-                )
-            )
-            return collab_result.scalar_one_or_none() is not None
-        
-        return True
+
+        result = await db.execute(
+            select(User.role).where(User.id == user_id)
+        )
+        role = result.scalar_one_or_none()
+        return role == UserRole.ADMIN
 
 
-# Global project service instance
+# Global ProjectSimulation service instance
 project_service = ProjectService()

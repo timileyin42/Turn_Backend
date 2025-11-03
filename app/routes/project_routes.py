@@ -38,9 +38,11 @@ async def create_project(
     try:
         return await project_service.create_project(db, current_user.id, project_data)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create project"
+            detail=f"Failed to create project: {str(e)}"
         )
 
 
@@ -60,9 +62,11 @@ async def get_my_projects(
     try:
         return await project_service.get_user_projects(db, current_user.id, skip, limit)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve projects"
+            detail=f"Failed to retrieve projects: {str(e)}"
         )
 
 
@@ -74,7 +78,7 @@ async def get_my_projects(
 )
 async def search_projects(
     query: Optional[str] = Query(None, description="Search query"),
-    status: Optional[str] = Query(None, description="Filter by project status"),
+    project_status: Optional[str] = Query(None, description="Filter by project status"),
     priority: Optional[str] = Query(None, description="Filter by priority"),
     category: Optional[str] = Query(None, description="Filter by category"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -86,7 +90,7 @@ async def search_projects(
     try:
         search_params = ProjectSearchRequest(
             query=query,
-            status=status,
+            status=project_status,
             priority=priority,
             category=category
         )
@@ -336,7 +340,7 @@ async def create_ai_coaching_session(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create AI coaching session"
+            detail=f"Failed to create AI coaching session: {str(e)}"
         )
 
 

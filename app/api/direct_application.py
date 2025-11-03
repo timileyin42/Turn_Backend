@@ -311,15 +311,12 @@ async def get_my_direct_applications(
         from sqlalchemy import select, desc
         from app.database.job_models import JobApplication
         
-        # Query direct applications
+        # Query direct applications (non-automated)
         query = (
             select(JobApplication)
             .where(
                 JobApplication.user_id == current_user.id,
-                JobApplication.application_method.in_([
-                    'direct_to_decision_maker',
-                    'direct_application'
-                ])
+                JobApplication.is_auto_applied == False
             )
             .order_by(desc(JobApplication.applied_at))
             .offset(skip)
@@ -334,10 +331,7 @@ async def get_my_direct_applications(
             select(JobApplication)
             .where(
                 JobApplication.user_id == current_user.id,
-                JobApplication.application_method.in_([
-                    'direct_to_decision_maker',
-                    'direct_application'
-                ])
+                JobApplication.is_auto_applied == False
             )
         )
         count_result = await db.execute(count_query)
@@ -390,13 +384,10 @@ async def get_direct_application_stats(
         from sqlalchemy import select, func
         from app.database.job_models import JobApplication
         
-        # Total direct applications
+        # Total direct applications (non-automated)
         total_query = select(func.count()).select_from(JobApplication).where(
             JobApplication.user_id == current_user.id,
-            JobApplication.application_method.in_([
-                'direct_to_decision_maker',
-                'direct_application'
-            ])
+            JobApplication.is_auto_applied == False
         )
         total_result = await db.execute(total_query)
         total_applications = total_result.scalar() or 0
@@ -404,11 +395,8 @@ async def get_direct_application_stats(
         # Applications with responses
         response_query = select(func.count()).select_from(JobApplication).where(
             JobApplication.user_id == current_user.id,
-            JobApplication.application_method.in_([
-                'direct_to_decision_maker',
-                'direct_application'
-            ]),
-            JobApplication.status.in_(['reviewing', 'interviewed', 'offered'])
+            JobApplication.is_auto_applied == False,
+            JobApplication.response_received == True
         )
         response_result = await db.execute(response_query)
         responses = response_result.scalar() or 0

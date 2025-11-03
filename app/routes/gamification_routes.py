@@ -414,7 +414,9 @@ async def get_user_level(
     gamification_service = get_gamification_service()
     level = await gamification_service.get_user_level(db, current_user.id)
     if not level:
-        raise HTTPException(status_code=404, detail="User level not found. Please initialize gamification first.")
+        # Auto-initialize gamification if not exists
+        await gamification_service.initialize_user_gamification(db, current_user.id)
+        level = await gamification_service.get_user_level(db, current_user.id)
     return level
 
 

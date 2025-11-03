@@ -2,7 +2,7 @@
 Project simulation and AI coaching Pydantic v2 schemas.
 """
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any, List, Dict, TypedDict
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.database.project_models import ProjectMethodology, ProjectStatus, ArtifactType
@@ -18,9 +18,9 @@ class ProjectSimulationBase(BaseModel):
     estimated_duration_hours: int = Field(..., ge=1, le=1000)
     team_size: int = Field(..., ge=1, le=50)
     budget: Optional[int] = Field(None, ge=0)  # in cents
-    stakeholders: Optional[List[Dict[str, Any]]] = None
-    constraints: Optional[List[str]] = None
-    objectives: List[str] = Field(..., min_length=1)
+    stakeholders: Optional[Any] = None  # JSON field
+    constraints: Optional[Any] = None  # JSON field
+    objectives: Any = None  # JSON field
 
 
 class ProjectSimulationCreate(ProjectSimulationBase):
@@ -205,7 +205,8 @@ class AiCoachingSessionBase(BaseModel):
 
 class AiCoachingSessionCreate(AiCoachingSessionBase):
     """Schema for creating AI coaching session."""
-    project_id: int = Field(..., gt=0)
+    ai_response: Optional[str] = Field(None, min_length=1)
+    project_id: Optional[int] = Field(None, gt=0)
 
 
 class AiCoachingSessionUpdate(BaseModel):
@@ -280,13 +281,26 @@ class ProjectSimulationDetailed(ProjectSimulationResponse):
     ai_sessions: List[AiCoachingSessionResponse] = []
 
 
-class ProjectListResponse(BaseModel):
+class ProjectListResponse(TypedDict):
     """Paginated project list response."""
     projects: List[ProjectSimulationResponse]
     total: int
     page: int
     size: int
     pages: int
+
+
+class ProjectSearchRequest(BaseModel):
+    """Search parameters for filtering projects."""
+    model_config = ConfigDict(extra="ignore")
+
+    query: Optional[str] = None
+    status: Optional[ProjectStatus] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
 
 
 # AI-specific schemas
@@ -331,13 +345,24 @@ class SimulationStatsResponse(BaseModel):
     most_popular_methodology: Optional[str] = None
 
 
+class ProjectAnalyticsMetrics(BaseModel):
+    """Analytics for a single project."""
+    project_id: int
+    total_tasks: int
+    completed_tasks: int
+    in_progress_tasks: int
+    pending_tasks: int
+    completion_rate: float
+    project_duration_days: Optional[int] = None
+    created_at: datetime
+    last_activity: datetime
+
+
 # Aliases for compatibility
 ProjectCreate = ProjectSimulationCreate
 ProjectUpdate = ProjectSimulationUpdate
 ProjectResponse = ProjectSimulationResponse
-ProjectListResponse = List[ProjectSimulationResponse]
-ProjectSearchRequest = Dict[str, Any]  # Placeholder
-ProjectAnalyticsResponse = SimulationStatsResponse
+ProjectAnalyticsResponse = ProjectAnalyticsMetrics
 ProjectCollaboratorCreate = Dict[str, Any]  # Placeholder
 ProjectCollaboratorResponse = Dict[str, Any]  # Placeholder  
 AICoachingSessionCreate = AiCoachingSessionCreate

@@ -12,3 +12,4 @@ from app.database.job_models import *  # noqa
 from app.database.portfolio_models import *  # noqa
 from app.database.community_models import *  # noqa
 from app.database.industry_models import *  # noqa
+from app.database.gamification_models import *  # noqa

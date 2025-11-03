@@ -113,15 +113,26 @@ class AIService:
             self.logger.warning("No AI providers available. Check API keys and dependencies.")
             
     def get_available_provider(self) -> Optional[AIProvider]:
-        """Get the first available provider."""
+        """Get the preferred available provider."""
         if self.provider in self.providers:
             return self.provider
-        
-        # Fallback to any available provider
+
         for provider in [AIProvider.GEMINI, AIProvider.GROQ, AIProvider.HUGGINGFACE]:
             if provider in self.providers:
                 return provider
         return None
+
+    def _provider_attempt_order(self) -> List[AIProvider]:
+        """Return providers to try in priority order."""
+        order: List[AIProvider] = []
+        primary = self.get_available_provider()
+        if primary:
+            order.append(primary)
+
+        for provider in [AIProvider.GEMINI, AIProvider.GROQ, AIProvider.HUGGINGFACE]:
+            if provider in self.providers and provider not in order:
+                order.append(provider)
+        return order
         
     # AI PM Teacher persona
     pm_teacher_system_prompt = """
@@ -146,39 +157,63 @@ class AIService:
     
     async def _generate_response(self, prompt: str, system_prompt: str = None) -> str:
         """Generate AI response using available provider."""
-        provider = self.get_available_provider()
-        if not provider:
+        attempt_order = self._provider_attempt_order()
+        if not attempt_order:
             return "AI service temporarily unavailable. Please try again later."
             
         full_prompt = f"{system_prompt or self.pm_teacher_system_prompt}\n\nUser: {prompt}\n\nAI:"
         
-        try:
-            if provider == AIProvider.GEMINI:
-                model = self.providers[AIProvider.GEMINI]
-                response = model.generate_content(full_prompt)
-                return response.text
-                
-            elif provider == AIProvider.GROQ:
-                client = self.providers[AIProvider.GROQ]
-                chat_completion = client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": system_prompt or self.pm_teacher_system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    model="llama3-8b-8192",  # Free Llama 3 model
-                    max_tokens=1000,
-                    temperature=0.7
-                )
-                return chat_completion.choices[0].message.content
-                
-            elif provider == AIProvider.HUGGINGFACE:
-                model = self.providers[AIProvider.HUGGINGFACE]
-                response = model(full_prompt, max_length=500, num_return_sequences=1)
-                return response[0]['generated_text'][len(full_prompt):].strip()
-                
-        except Exception as e:
-            self.logger.error(f"Error generating AI response with {provider}: {e}")
-            return f"I'm having trouble processing your request right now. Please try again later."
+        for provider in attempt_order:
+            try:
+                if provider == AIProvider.GEMINI:
+                    model = self.providers[AIProvider.GEMINI]
+                    response = model.generate_content(full_prompt)
+                    return response.text
+
+                if provider == AIProvider.GROQ:
+                    client = self.providers[AIProvider.GROQ]
+                    chat_completion = client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": system_prompt or self.pm_teacher_system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        model="llama-3.1-8b-instant",
+                        max_tokens=1000,
+                        temperature=0.7
+                    )
+                    return chat_completion.choices[0].message.content
+
+                if provider == AIProvider.HUGGINGFACE:
+                    model = self.providers[AIProvider.HUGGINGFACE]
+                    response = model(full_prompt, max_length=500, num_return_sequences=1)
+                    return response[0]['generated_text'][len(full_prompt):].strip()
+            except Exception as e:
+                self.logger.error(f"Error generating AI response with {provider}: {e}")
+                continue
+
+        return "I'm having trouble processing your request right now. Please try again later."
+
+    async def generate_project_coaching_response(
+        self,
+        session_type: str,
+        topic: Optional[str],
+        user_input: Optional[str],
+    ) -> str:
+        """Generate an AI coaching response tailored to project sessions."""
+
+        session_descriptor = session_type.replace("_", " ") if session_type else "coaching"
+        focus_topic = topic or "project management"
+        user_prompt = user_input or "Provide guidance for this project update."
+
+        prompt = (
+            f"Session Type: {session_descriptor}\n"
+            f"Topic: {focus_topic}\n"
+            "Respond as a senior project management mentor. Give structured, actionable feedback,"
+            " highlight risks, and end with next steps the learner should take.\n\n"
+            f"User request: {user_prompt}"
+        )
+
+        return await self._generate_response(prompt)
 
     async def get_personalized_learning_path(
         self,

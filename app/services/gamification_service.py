@@ -532,6 +532,20 @@ class GamificationService:
             )
             user_level = level_result.scalar_one_or_none()
             
+            # Auto-initialize if user doesn't have gamification data
+            if not user_points or not user_level:
+                await self.initialize_user_gamification(db, user_id)
+                # Re-fetch after initialization
+                points_result = await db.execute(
+                    select(UserPoints).where(UserPoints.user_id == user_id)
+                )
+                user_points = points_result.scalar_one()
+                
+                level_result = await db.execute(
+                    select(UserLevel).where(UserLevel.user_id == user_id)
+                )
+                user_level = level_result.scalar_one()
+            
             # Get badges
             badges_result = await db.execute(
                 select(UserBadge)
@@ -1068,12 +1082,12 @@ class GamificationService:
             user_points = result.scalar_one_or_none()
             
             if not user_points:
-                return {
-                    "total_points": 0,
-                    "available_points": 0,
-                    "lifetime_points": 0,
-                    "current_level": 1
-                }
+                # Auto-initialize gamification
+                await self.initialize_user_gamification(db, user_id)
+                result = await db.execute(
+                    select(UserPoints).where(UserPoints.user_id == user_id)
+                )
+                user_points = result.scalar_one()
             
             return {
                 "total_points": user_points.total_points,
@@ -1153,11 +1167,81 @@ class GamificationService:
             # Get recent transactions
             transactions = await self.get_point_transactions(db, user_id, limit=10)
             
+            # Calculate upcoming milestones
+            current_level = stats.current_level
+            next_level = current_level + 1
+            upcoming_milestones = [
+                {
+                    "type": "level",
+                    "title": f"Reach Level {next_level}",
+                    "description": f"Earn {stats.xp_to_next_level} more XP",
+                    "progress": 0,
+                    "target": stats.xp_to_next_level
+                }
+            ]
+            
+            # Add streak milestones
+            for streak_type, current_streak in stats.current_streaks.items():
+                next_milestone = 7 if current_streak < 7 else (14 if current_streak < 14 else 30)
+                if current_streak < 30:
+                    upcoming_milestones.append({
+                        "type": "streak",
+                        "title": f"{streak_type.replace('_', ' ').title()} - {next_milestone} Day Streak",
+                        "description": f"{next_milestone - current_streak} more days to go",
+                        "progress": current_streak,
+                        "target": next_milestone
+                    })
+            
+            # Suggested actions based on user state
+            suggested_actions = []
+            
+            if stats.active_challenges_count == 0:
+                suggested_actions.append({
+                    "action": "join_challenge",
+                    "title": "Join a Challenge",
+                    "description": "Start earning points by joining an active challenge",
+                    "icon": "trophy"
+                })
+            
+            if stats.total_badges == 0:
+                suggested_actions.append({
+                    "action": "earn_badge",
+                    "title": "Earn Your First Badge",
+                    "description": "Complete activities to unlock badges",
+                    "icon": "award"
+                })
+            
+            if stats.current_streaks.get('daily_login', 0) == 0:
+                suggested_actions.append({
+                    "action": "start_streak",
+                    "title": "Start Your Daily Login Streak",
+                    "description": "Login daily to build your streak and earn bonus points",
+                    "icon": "calendar"
+                })
+            
+            # If no specific suggestions, add general ones
+            if not suggested_actions:
+                suggested_actions = [
+                    {
+                        "action": "explore_challenges",
+                        "title": "Explore New Challenges",
+                        "description": "Check out featured challenges for bonus rewards",
+                        "icon": "explore"
+                    },
+                    {
+                        "action": "view_leaderboard",
+                        "title": "Check Your Rank",
+                        "description": "See where you stand on the leaderboard",
+                        "icon": "leaderboard"
+                    }
+                ]
+            
             return {
-                "stats": stats.model_dump(),
-                "featured_challenges": [c.model_dump() for c in challenges[:3]],
-                "active_participations": [p.model_dump() for p in participations[:5]],
-                "recent_transactions": [t.model_dump() for t in transactions[:5]]
+                "user_stats": stats,
+                "featured_challenges": challenges[:3],
+                "recent_activities": transactions[:5],
+                "upcoming_milestones": upcoming_milestones[:5],
+                "suggested_actions": suggested_actions[:4]
             }
             
         except Exception as e:

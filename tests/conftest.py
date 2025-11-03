@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.core.config import settings
-from app.database.base import Base
+from app.core.database import Base
 from app.core.dependencies import get_db
 
 # Test database URL (use a separate test database)
