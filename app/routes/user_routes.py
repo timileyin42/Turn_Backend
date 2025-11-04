@@ -27,7 +27,11 @@ async def get_my_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current user's profile."""
+    """
+    Get current user's profile.
+    
+    Example: No parameters required - requires Bearer token in Authorization header
+    """
     try:
         user_response = await user_service.get_user_by_id(db, current_user.id)
         if not user_response:
@@ -56,7 +60,16 @@ async def update_my_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update current user's basic information."""
+    """
+    Update current user's basic information.
+    
+    Example request body:
+    {
+        "full_name": "John Michael Doe",
+        "phone": "+2348123456789",
+        "bio": "Experienced full-stack developer passionate about AI"
+    }
+    """
     try:
         updated_user = await user_service.update_user(db, current_user.id, user_data)
         if not updated_user:
@@ -85,7 +98,18 @@ async def update_my_profile_details(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update current user's profile details."""
+    """
+    Update current user's profile details.
+    
+    Example request body:
+    {
+        "title": "Senior Software Engineer",
+        "location": "Lagos, Nigeria",
+        "website": "https://johndoe.dev",
+        "linkedin_url": "https://linkedin.com/in/johndoe",
+        "github_url": "https://github.com/johndoe"
+    }
+    """
     try:
         updated_user = await user_service.update_user_profile(db, current_user.id, profile_data)
         if not updated_user:
@@ -114,7 +138,18 @@ async def update_my_preferences(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update current user's preferences."""
+    """
+    Update current user's preferences.
+    
+    Example request body:
+    {
+        "email_notifications": true,
+        "job_alerts": true,
+        "newsletter_subscription": false,
+        "preferred_language": "en",
+        "timezone": "Africa/Lagos"
+    }
+    """
     try:
         updated_user = await user_service.update_user_preferences(db, current_user.id, preferences_data)
         if not updated_user:
@@ -141,7 +176,11 @@ async def deactivate_my_account(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Deactivate current user's account."""
+    """
+    Deactivate current user's account.
+    
+    Example: No parameters required - POST request to deactivate authenticated user's account
+    """
     try:
         success = await user_service.deactivate_user(db, current_user.id)
         if not success:
@@ -168,7 +207,11 @@ async def get_my_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current user's statistics."""
+    """
+    Get current user's statistics.
+    
+    Example: No parameters required - returns activity stats for authenticated user
+    """
     try:
         stats = await user_service.get_user_stats(db, current_user.id)
         return stats
@@ -192,7 +235,18 @@ async def create_my_mentor_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create mentor profile for current user."""
+    """
+    Create mentor profile for current user.
+    
+    Example request body:
+    {
+        "expertise_areas": ["Software Engineering", "Career Development", "AI/ML"],
+        "years_of_experience": 8,
+        "availability": "weekends",
+        "hourly_rate": 50.00,
+        "bio": "Passionate about helping junior developers grow their careers"
+    }
+    """
     try:
         mentor_profile = await user_service.create_mentor_profile(db, current_user.id, mentor_data)
         if not mentor_profile:
@@ -225,7 +279,11 @@ async def get_my_mentor_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current user's mentor profile."""
+    """
+    Get current user's mentor profile.
+    
+    Example: No parameters required - returns mentor profile for authenticated user
+    """
     try:
         mentor_profile = await user_service.get_mentor_profile(db, current_user.id)
         if not mentor_profile:
@@ -254,7 +312,16 @@ async def update_my_mentor_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update current user's mentor profile."""
+    """
+    Update current user's mentor profile.
+    
+    Example request body:
+    {
+        "expertise_areas": ["Software Engineering", "Cloud Architecture", "DevOps"],
+        "availability": "weekday_evenings",
+        "hourly_rate": 75.00
+    }
+    """
     try:
         mentor_profile = await user_service.update_mentor_profile(db, current_user.id, mentor_data)
         if not mentor_profile:
@@ -281,7 +348,11 @@ async def delete_my_mentor_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete current user's mentor profile."""
+    """
+    Delete current user's mentor profile.
+    
+    Example: No parameters required - DELETE request removes mentor profile
+    """
     try:
         success = await user_service.delete_mentor_profile(db, current_user.id)
         if not success:
@@ -317,7 +388,12 @@ async def list_users(
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """List all users (admin only)."""
+    """
+    List all users (admin only).
+    
+    Example query parameters:
+    ?query=john&role=user&is_active=true&email_verified=true&limit=50
+    """
     try:
         search_params = UserSearchRequest(
             query=query,
@@ -345,7 +421,11 @@ async def get_user_by_id(
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user by ID (admin only)."""
+    """
+    Get user by ID (admin only).
+    
+    Example: GET /api/v1/users/25
+    """
     try:
         user_response = await user_service.get_user_by_id(db, user_id)
         if not user_response:
@@ -373,7 +453,11 @@ async def reactivate_user(
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Reactivate user account (admin only)."""
+    """
+    Reactivate user account (admin only).
+    
+    Example: POST /api/v1/users/25/reactivate
+    """
     try:
         success = await user_service.reactivate_user(db, user_id)
         if not success:
@@ -401,7 +485,11 @@ async def deactivate_user(
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Deactivate user account (admin only)."""
+    """
+    Deactivate user account (admin only).
+    
+    Example: POST /api/v1/users/25/deactivate
+    """
     try:
         success = await user_service.deactivate_user(db, user_id)
         if not success:

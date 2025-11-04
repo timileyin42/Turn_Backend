@@ -34,7 +34,21 @@ async def create_project(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new project."""
+    """
+    Create a new project.
+    
+    Example request body:
+    {
+        "title": "E-Commerce Platform Redesign",
+        "description": "Modernize the UI/UX of our e-commerce platform",
+        "status": "planning",
+        "priority": "high",
+        "category": "web_development",
+        "start_date": "2025-11-10",
+        "end_date": "2025-12-31",
+        "budget": 50000
+    }
+    """
     try:
         return await project_service.create_project(db, current_user.id, project_data)
     except Exception as e:
@@ -58,7 +72,12 @@ async def get_my_projects(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user's projects."""
+    """
+    Get user's projects.
+    
+    Example query parameters:
+    ?skip=0&limit=20
+    """
     try:
         return await project_service.get_user_projects(db, current_user.id, skip, limit)
     except Exception as e:
@@ -86,7 +105,12 @@ async def search_projects(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Search projects with filters."""
+    """
+    Search projects with filters.
+    
+    Example query parameters:
+    ?query=e-commerce&project_status=active&priority=high&category=web_development&limit=10
+    """
     try:
         search_params = ProjectSearchRequest(
             query=query,
@@ -113,7 +137,11 @@ async def get_project(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project by ID."""
+    """
+    Get project by ID.
+    
+    Example: GET /api/v1/projects/42
+    """
     try:
         project = await project_service.get_project_by_id(db, project_id, current_user.id)
         if not project:
@@ -143,7 +171,17 @@ async def update_project(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project."""
+    """
+    Update project.
+    
+    Example request body:
+    {
+        "title": "E-Commerce Platform Redesign v2",
+        "status": "in_progress",
+        "priority": "urgent",
+        "progress_percentage": 45
+    }
+    """
     try:
         updated_project = await project_service.update_project(db, project_id, current_user.id, project_data)
         if not updated_project:
@@ -171,7 +209,11 @@ async def delete_project(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete project."""
+    """
+    Delete project.
+    
+    Example: DELETE /api/v1/projects/42
+    """
     try:
         success = await project_service.delete_project(db, project_id, current_user.id)
         if not success:
@@ -204,7 +246,19 @@ async def create_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create project task."""
+    """
+    Create project task.
+    
+    Example request body:
+    {
+        "title": "Design homepage wireframes",
+        "description": "Create low-fidelity wireframes for the new homepage layout",
+        "status": "todo",
+        "priority": "high",
+        "due_date": "2025-11-20",
+        "assigned_to_user_id": 5
+    }
+    """
     try:
         task = await project_service.create_task(db, project_id, current_user.id, task_data)
         if not task:
@@ -233,7 +287,11 @@ async def get_project_tasks(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project tasks."""
+    """
+    Get project tasks.
+    
+    Example: GET /api/v1/projects/42/tasks
+    """
     try:
         return await project_service.get_project_tasks(db, project_id, current_user.id)
     except Exception as e:
@@ -255,7 +313,16 @@ async def update_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project task."""
+    """
+    Update project task.
+    
+    Example request body:
+    {
+        "status": "in_progress",
+        "progress_percentage": 30,
+        "notes": "Started working on mobile wireframes"
+    }
+    """
     try:
         updated_task = await project_service.update_task(db, task_id, current_user.id, task_data)
         if not updated_task:
@@ -288,7 +355,16 @@ async def add_collaborator(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Add project collaborator."""
+    """
+    Add project collaborator.
+    
+    Example request body:
+    {
+        "user_id": 15,
+        "role": "contributor",
+        "permissions": ["read", "write"]
+    }
+    """
     try:
         collaborator = await project_service.add_collaborator(db, project_id, current_user.id, collaborator_data)
         if not collaborator:
@@ -326,7 +402,16 @@ async def create_ai_coaching_session(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create AI coaching session."""
+    """
+    Create AI coaching session.
+    
+    Example request body:
+    {
+        "session_type": "project_guidance",
+        "topic": "How to structure API endpoints for microservices",
+        "user_message": "I need advice on breaking down my monolithic app into microservices"
+    }
+    """
     try:
         session = await project_service.create_ai_coaching_session(db, project_id, current_user.id, session_data)
         if not session:
@@ -355,7 +440,11 @@ async def get_ai_coaching_sessions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get AI coaching sessions for project."""
+    """
+    Get AI coaching sessions for project.
+    
+    Example: GET /api/v1/projects/42/ai-coaching
+    """
     try:
         return await project_service.get_project_ai_sessions(db, project_id, current_user.id)
     except Exception as e:
@@ -378,7 +467,11 @@ async def get_project_analytics(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project analytics."""
+    """
+    Get project analytics.
+    
+    Example: GET /api/v1/projects/42/analytics
+    """
     try:
         analytics = await project_service.get_project_analytics(db, project_id, current_user.id)
         if not analytics:

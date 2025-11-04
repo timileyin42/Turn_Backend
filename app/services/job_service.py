@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_, or_, func, desc, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.database.job_models import (
@@ -14,6 +15,7 @@ from app.database.job_models import (
     JobSkillRequirement,
     CompanyProfile
 )
+from app.database.cv_models import CV
 from app.schemas.job_schemas import (
     JobCreate, JobUpdate, JobResponse, JobListResponse,
     JobApplicationCreate, JobApplicationUpdate, JobApplicationResponse,
@@ -220,6 +222,32 @@ class JobService:
         Returns:
             Created application response
         """
+        # Ensure job listing exists and is accepting applications
+        job_result = await db.execute(
+            select(Job).where(Job.id == application_data.job_listing_id)
+        )
+        job_listing = job_result.scalar_one_or_none()
+
+        if not job_listing:
+            raise ValueError("Job listing not found")
+
+        if not getattr(job_listing, "is_active", True):
+            raise ValueError("Job listing is no longer accepting applications")
+
+        # Validate CV ownership when provided to avoid foreign key violations
+        if application_data.cv_id is not None:
+            cv_result = await db.execute(
+                select(CV).where(
+                    and_(
+                        CV.id == application_data.cv_id,
+                        CV.user_id == user_id
+                    )
+                )
+            )
+            cv = cv_result.scalar_one_or_none()
+            if not cv:
+                raise ValueError("CV not found for this user")
+
         # Check if user already applied
         existing = await db.execute(
             select(JobApplication).where(
@@ -240,7 +268,13 @@ class JobService:
         )
         
         db.add(db_application)
-        await db.commit()
+
+        try:
+            await db.commit()
+        except IntegrityError as exc:
+            await db.rollback()
+            raise ValueError("Invalid job application data") from exc
+
         await db.refresh(db_application)
         
         return JobApplicationResponse.model_validate(db_application)
@@ -401,8 +435,8 @@ class JobService:
         alerts_processed = len(alerts)
         
         for alert in alerts:
-            # Find matching jobs posted since last check
-            last_check = alert.last_checked or alert.created_at
+            # Find matching jobs posted since last trigger
+            last_check = alert.last_triggered or alert.created_at
             
             # Build search query based on alert criteria
             job_query = select(Job).where(
@@ -417,7 +451,12 @@ class JobService:
             
             if alert.keywords:
                 keyword_conditions = []
-                for keyword in alert.keywords:
+                keyword_list = (
+                    alert.keywords
+                    if isinstance(alert.keywords, list)
+                    else [kw.strip() for kw in str(alert.keywords).split(",") if kw.strip()]
+                )
+                for keyword in keyword_list:
                     keyword_term = f"%{keyword}%"
                     keyword_conditions.append(
                         or_(
@@ -432,8 +471,8 @@ class JobService:
                 location_term = f"%{alert.location}%"
                 conditions.append(Job.location.ilike(location_term))
             
-            if alert.employment_type:
-                conditions.append(Job.employment_type == alert.employment_type)
+            if getattr(alert, "job_type", None):
+                conditions.append(Job.employment_type == alert.job_type)
             
             if alert.salary_min:
                 conditions.append(Job.salary_min >= alert.salary_min)
@@ -451,7 +490,7 @@ class JobService:
                 notifications_sent += len(matching_jobs)
             
             # Update last checked time
-            alert.last_checked = datetime.utcnow()
+            alert.last_triggered = datetime.utcnow()
         
         await db.commit()
         
@@ -607,14 +646,43 @@ class JobService:
         
         for status, count in status_result.all():
             status_counts[status] = count
+
+        # Recent application metrics
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        recent_result = await db.execute(
+            select(func.count(JobApplication.id)).where(
+                and_(
+                    JobApplication.job_listing_id == job_id,
+                    JobApplication.applied_at.is_not(None),
+                    JobApplication.applied_at >= thirty_days_ago
+                )
+            )
+        )
+        recent_applications = recent_result.scalar() or 0
+
+        last_app_result = await db.execute(
+            select(func.max(JobApplication.applied_at)).where(
+                JobApplication.job_listing_id == job_id
+            )
+        )
+        last_application_at = last_app_result.scalar()
+
+        days_since_posted = (
+            (datetime.utcnow() - job.posted_at).days
+            if job.posted_at else None
+        )
         
         return JobAnalyticsResponse(
-            job_id=job_id,
+            job_id=job.id,
+            job_title=job.title,
+            company_name=job.company_name,
+            is_active=job.is_active,
+            posted_date=job.posted_at,
+            days_since_posted=days_since_posted,
             total_applications=total_applications,
             applications_by_status=status_counts,
-            views_count=0,  # TODO: Implement view tracking
-            posted_date=job.posted_at,
-            days_since_posted=(datetime.utcnow() - job.posted_at).days if job.posted_at else 0
+            recent_applications=recent_applications,
+            last_application_at=last_application_at
         )
     
     async def get_user_application_analytics(

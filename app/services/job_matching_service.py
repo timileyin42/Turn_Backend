@@ -30,9 +30,9 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
-from app.database.job_models import JobPosting, JobApplication, SavedJob
+from app.database.job_models import JobApplication, SavedJob
 from app.database.user_models import User, UserSkill
-from app.database.cv_models import CV, CVExperience, CVEducation, CVSkill
+from app.database.cv_models import CV, WorkExperience, Education, CVSkill
 from app.schemas.job_schemas import JobMatchResponse, JobRecommendationResponse
 
 
@@ -43,6 +43,7 @@ class JobMatchingService:
         """Initialize job matching service with free embedding models."""
         self.embedding_model = None
         self.tfidf_vectorizer = None
+        self.sentence_transformers_loaded = False
         
         # Initialize TF-IDF if sklearn available
         if SKLEARN_AVAILABLE:
@@ -58,11 +59,14 @@ class JobMatchingService:
                 # Use free, lightweight models
                 self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')  # 22MB model
                 print("Sentence Transformers loaded successfully")
+                self.sentence_transformers_loaded = True
             except Exception as e:
                 print(f"WARNING: Could not load sentence transformers: {e}")
                 self.embedding_model = None
+                self.sentence_transformers_loaded = False
         else:
             print("WARNING: Sentence Transformers not available. Using basic matching.")
+            self.sentence_transformers_loaded = False
     
     async def get_user_profile_text(self, db: AsyncSession, user_id: int) -> str:
         """Generate comprehensive user profile text for matching."""
@@ -97,7 +101,7 @@ class JobMatchingService:
             
             # Get work experience
             exp_result = await db.execute(
-                select(CVExperience).where(CVExperience.cv_id == cv.id)
+                select(WorkExperience).where(WorkExperience.cv_id == cv.id)
             )
             experiences = exp_result.scalars().all()
             
@@ -109,7 +113,7 @@ class JobMatchingService:
             
             # Get education
             edu_result = await db.execute(
-                select(CVEducation).where(CVEducation.cv_id == cv.id)
+                select(Education).where(Education.cv_id == cv.id)
             )
             education = edu_result.scalars().all()
             
@@ -367,7 +371,7 @@ class JobMatchingService:
     def get_matching_capabilities(self) -> Dict[str, Any]:
         """Get information about available matching capabilities."""
         return {
-            "sentence_transformers_available": SENTENCE_TRANSFORMERS_AVAILABLE,
+            "sentence_transformers_available": self.sentence_transformers_loaded,
             "embedding_model": "all-MiniLM-L6-v2" if self.embedding_model else None,
             "fallback_method": "TF-IDF with scikit-learn",
             "features": [

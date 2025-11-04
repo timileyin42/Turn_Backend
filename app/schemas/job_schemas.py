@@ -421,24 +421,27 @@ class JobAlertResponse(JobAlertBase):
 
 # Analytics and reporting schemas
 class JobAnalyticsResponse(BaseModel):
-    """Job analytics response schema."""
-    total_jobs: int = 0
-    active_jobs: int = 0
-    jobs_this_month: int = 0
-    top_skills: List[str] = []
-    top_companies: List[str] = []
-    average_salary: Optional[float] = None
-    salary_range: Dict[str, Optional[int]] = {"min": None, "max": None}
+    """Aggregated metrics for a specific job listing."""
+    job_id: int
+    job_title: str
+    company_name: str
+    is_active: bool
+    posted_date: Optional[datetime] = None
+    days_since_posted: Optional[int] = None
+    total_applications: int = 0
+    applications_by_status: Dict[str, int] = Field(default_factory=dict)
+    recent_applications: int = 0
+    last_application_at: Optional[datetime] = None
 
 
 class ApplicationAnalyticsResponse(BaseModel):
-    """Application analytics response schema."""
+    """Aggregated metrics for a user's job applications."""
+    user_id: int
     total_applications: int = 0
-    applications_this_month: int = 0
-    success_rate: float = 0.0
-    avg_response_time: Optional[float] = None
-    status_breakdown: Dict[str, int] = {}
-    top_applied_companies: List[str] = []
+    applications_by_status: Dict[str, int] = Field(default_factory=dict)
+    response_rate: float = 0.0
+    applications_last_30_days: int = 0
+    avg_response_time_days: Optional[float] = None
 
 
 # Smart Job Matching schemas

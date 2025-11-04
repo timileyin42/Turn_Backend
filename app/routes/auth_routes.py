@@ -33,7 +33,19 @@ async def register(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Register a new user account."""
+    """
+    Register a new user account.
+    
+    Example request body:
+    {
+        "email": "john.doe@example.com",
+        "username": "johndoe",
+        "password": "SecurePass123!",
+        "full_name": "John Doe",
+        "phone": "+2348012345678",
+        "role": "user"
+    }
+    """
     try:
         return await auth_service.register_user(db, user_data)
     except ValueError as e:
@@ -123,7 +135,15 @@ async def login_json(
     login_data: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Authenticate user using JSON request body."""
+    """
+    Authenticate user using JSON request body.
+    
+    Example request body:
+    {
+        "username": "john.doe@example.com",
+        "password": "SecurePass123!"
+    }
+    """
     try:
         return await auth_service.login_user(db, login_data)
     except ValueError as e:
@@ -149,7 +169,14 @@ async def refresh_token(
     refresh_data: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Refresh access token using refresh token."""
+    """
+    Refresh access token using refresh token.
+    
+    Example request body:
+    {
+        "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    }
+    """
     try:
         return await auth_service.refresh_access_token(db, refresh_data)
     except ValueError as e:
@@ -174,7 +201,11 @@ async def refresh_token(
 async def get_me(
     current_user: User = Depends(get_current_user)
 ):
-    """Get current authenticated user."""
+    """
+    Get current authenticated user.
+    
+    Example: No parameters required - requires Bearer token in Authorization header
+    """
     try:
         return UserResponse.model_validate(current_user)
     except Exception as e:
@@ -194,7 +225,15 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Change user password."""
+    """
+    Change user password.
+    
+    Example request body:
+    {
+        "old_password": "OldSecurePass123!",
+        "new_password": "NewSecurePass456!"
+    }
+    """
     try:
         # Change password
         success = await auth_service.change_password(db, current_user.id, password_data)
@@ -229,7 +268,14 @@ async def forgot_password(
     reset_data: PasswordResetRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Request password reset token."""
+    """
+    Request password reset token.
+    
+    Example request body:
+    {
+        "email": "john.doe@example.com"
+    }
+    """
     try:
         reset_token = await auth_service.request_password_reset(db, reset_data)
         
@@ -260,7 +306,12 @@ async def verify_email(
     token: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify user's email address."""
+    """
+    Verify user's email address.
+    
+    Example query parameters:
+    ?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    """
     try:
         success = await auth_service.verify_email(db, token)
         if not success:
@@ -290,7 +341,12 @@ async def verify_email_otp(
     otp: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify user's email address using OTP."""
+    """
+    Verify user's email address using OTP.
+    
+    Example query parameters:
+    ?email=john.doe@example.com&otp=123456
+    """
     try:
         success = await auth_service.verify_email_otp(db, email, otp)
         if not success:
@@ -319,7 +375,12 @@ async def send_login_otp(
     email: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Send OTP for passwordless login."""
+    """
+    Send OTP for passwordless login.
+    
+    Example query parameters:
+    ?email=john.doe@example.com
+    """
     try:
         success = await auth_service.send_login_otp(db, email)
         if not success:
@@ -353,7 +414,12 @@ async def verify_login_otp(
     otp: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify OTP and return login tokens."""
+    """
+    Verify OTP and return login tokens.
+    
+    Example query parameters:
+    ?email=john.doe@example.com&otp=123456
+    """
     try:
         token_response = await auth_service.verify_login_otp(db, email, otp)
         if not token_response:
@@ -384,7 +450,12 @@ async def send_password_reset_otp(
     email: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Send OTP for password reset."""
+    """
+    Send OTP for password reset.
+    
+    Example query parameters:
+    ?email=john.doe@example.com
+    """
     try:
         success = await auth_service.send_password_reset_otp(db, email)
         if not success:
@@ -418,7 +489,12 @@ async def reset_password_with_otp(
     new_password: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify OTP and reset password."""
+    """
+    Verify OTP and reset password.
+    
+    Example query parameters:
+    ?email=john.doe@example.com&otp=123456&new_password=NewSecurePass789!
+    """
     try:
         success = await auth_service.verify_password_reset_otp(
             db, email, otp, new_password
@@ -449,7 +525,12 @@ async def resend_verification_email(
     email: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Resend email verification."""
+    """
+    Resend email verification.
+    
+    Example query parameters:
+    ?email=john.doe@example.com
+    """
     try:
         success = await auth_service.resend_verification_email(db, email)
         if not success:
@@ -478,7 +559,11 @@ async def resend_verification_email(
     description="Logout user (client should discard tokens)"
 )
 async def logout():
-    """Logout user."""
+    """
+    Logout user.
+    
+    Example: No parameters required - client should discard JWT tokens
+    """
     # Since we're using stateless JWT tokens, logout is handled client-side
     # In a production system, you might want to blacklist tokens in Redis
     return {"message": "Logged out successfully"}

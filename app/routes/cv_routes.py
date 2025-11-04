@@ -36,7 +36,21 @@ async def create_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new CV."""
+    """
+    Create a new CV.
+    
+    Example request body:
+    {
+        "title": "Software Engineer Resume",
+        "template_id": 1,
+        "personal_info": {
+            "full_name": "John Doe",
+            "email": "john.doe@example.com",
+            "phone": "+2348012345678",
+            "location": "Lagos, Nigeria"
+        }
+    }
+    """
     try:
         return await cv_service.create_cv(db, current_user.id, cv_data)
     except Exception as e:
@@ -58,7 +72,12 @@ async def get_my_cvs(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user's CVs."""
+    """
+    Get user's CVs.
+    
+    Example query parameters:
+    ?skip=0&limit=10
+    """
     try:
         return await cv_service.get_user_cvs(db, current_user.id, skip, limit)
     except Exception as e:
@@ -77,7 +96,11 @@ async def get_my_cvs(
 async def get_cv_templates(
     db: AsyncSession = Depends(get_db)
 ):
-    """Get available CV templates."""
+    """
+    Get available CV templates.
+    
+    Example: No parameters required - returns list of all available templates
+    """
     try:
         return await cv_service.get_cv_templates(db)
     except Exception as e:
@@ -98,7 +121,11 @@ async def get_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get CV by ID."""
+    """
+    Get CV by ID.
+    
+    Example: GET /api/v1/cv/7
+    """
     try:
         cv = await cv_service.get_cv_by_id(db, cv_id, current_user.id)
         if not cv:
@@ -128,7 +155,16 @@ async def update_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update CV."""
+    """
+    Update CV.
+    
+    Example request body:
+    {
+        "title": "Senior Software Engineer Resume",
+        "is_active": true,
+        "summary": "Experienced software engineer with 5+ years in full-stack development"
+    }
+    """
     try:
         updated_cv = await cv_service.update_cv(db, cv_id, current_user.id, cv_data)
         if not updated_cv:
@@ -156,7 +192,11 @@ async def delete_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete CV."""
+    """
+    Delete CV.
+    
+    Example: DELETE /api/v1/cv/7
+    """
     try:
         success = await cv_service.delete_cv(db, cv_id, current_user.id)
         if not success:
@@ -189,7 +229,17 @@ async def create_cv_section(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create CV section."""
+    """
+    Create CV section.
+    
+    Example request body:
+    {
+        "section_type": "custom",
+        "title": "Certifications",
+        "content": "AWS Certified Solutions Architect - 2024",
+        "order": 5
+    }
+    """
     try:
         section = await cv_service.create_cv_section(db, cv_id, current_user.id, section_data)
         if not section:
@@ -219,7 +269,16 @@ async def update_cv_section(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update CV section."""
+    """
+    Update CV section.
+    
+    Example request body:
+    {
+        "title": "Professional Certifications",
+        "content": "AWS Solutions Architect (2024), Azure Developer (2023)",
+        "order": 4
+    }
+    """
     try:
         updated_section = await cv_service.update_cv_section(db, section_id, current_user.id, section_data)
         if not updated_section:
@@ -252,7 +311,19 @@ async def add_education(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Add education entry to CV."""
+    """
+    Add education entry to CV.
+    
+    Example request body:
+    {
+        "institution": "University of Lagos",
+        "degree": "Bachelor of Science",
+        "field_of_study": "Computer Science",
+        "start_date": "2015-09-01",
+        "end_date": "2019-07-01",
+        "grade": "First Class"
+    }
+    """
     try:
         education = await cv_service.add_education(db, cv_id, current_user.id, education_data)
         if not education:
@@ -282,7 +353,15 @@ async def update_education(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update education entry."""
+    """
+    Update education entry.
+    
+    Example request body:
+    {
+        "grade": "First Class Honours",
+        "description": "Graduated with distinction in Software Engineering track"
+    }
+    """
     try:
         updated_education = await cv_service.update_education(db, education_id, current_user.id, education_data)
         if not updated_education:
@@ -315,7 +394,20 @@ async def add_experience(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Add work experience to CV."""
+    """
+    Add work experience to CV.
+    
+    Example request body:
+    {
+        "company": "TechCorp Nigeria",
+        "position": "Senior Software Engineer",
+        "location": "Lagos, Nigeria",
+        "start_date": "2020-06-01",
+        "end_date": "2024-10-31",
+        "description": "Led development of microservices architecture",
+        "achievements": ["Reduced API response time by 40%", "Mentored 5 junior developers"]
+    }
+    """
     try:
         experience = await cv_service.add_experience(db, cv_id, current_user.id, experience_data)
         if not experience:
@@ -345,7 +437,15 @@ async def update_experience(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update work experience."""
+    """
+    Update work experience.
+    
+    Example request body:
+    {
+        "position": "Lead Software Engineer",
+        "achievements": ["Reduced API latency by 45%", "Led team of 8 developers", "Migrated to Kubernetes"]
+    }
+    """
     try:
         updated_experience = await cv_service.update_experience(db, experience_id, current_user.id, experience_data)
         if not updated_experience:
@@ -378,7 +478,17 @@ async def add_skill(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Add skill to CV."""
+    """
+    Add skill to CV.
+    
+    Example request body:
+    {
+        "skill_name": "Python",
+        "category": "programming_language",
+        "proficiency_level": "expert",
+        "years_of_experience": 5
+    }
+    """
     try:
         skill = await cv_service.add_skill(db, cv_id, current_user.id, skill_data)
         if not skill:
@@ -411,7 +521,12 @@ async def export_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Export CV to specified format."""
+    """
+    Export CV to specified format.
+    
+    Example query parameters:
+    ?export_format=pdf&template_id=2
+    """
     try:
         export = await cv_service.export_cv(db, cv_id, current_user.id, export_format, template_id)
         if not export:
@@ -441,7 +556,11 @@ async def get_cv_analytics(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get CV analytics."""
+    """
+    Get CV analytics.
+    
+    Example: GET /api/v1/cv/7/analytics
+    """
     try:
         analytics = await cv_service.get_cv_analytics(db, cv_id, current_user.id)
         if not analytics:

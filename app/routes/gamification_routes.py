@@ -62,7 +62,12 @@ async def get_all_badges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all available badges with optional filtering."""
+    """
+    Get all available badges with optional filtering.
+    
+    Example query parameters:
+    ?skip=0&limit=50&badge_type=achievement&rarity=epic
+    """
     gamification_service = get_gamification_service()
     badges = await gamification_service.get_all_badges(
         db, skip=skip, limit=limit, badge_type=badge_type, rarity=rarity
@@ -76,7 +81,11 @@ async def get_badge_details(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get detailed information about a specific badge."""
+    """
+    Get detailed information about a specific badge.
+    
+    Example: GET /api/v1/gamification/badges/5
+    """
     gamification_service = get_gamification_service()
     badge = await gamification_service.get_badge_by_id(db, badge_id)
     if not badge:
@@ -92,7 +101,12 @@ async def get_user_badges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get current user's badges and progress."""
+    """
+    Get current user's badges and progress.
+    
+    Example query parameters:
+    ?completed_only=true&limit=20
+    """
     gamification_service = get_gamification_service()
     user_badges = await gamification_service.get_user_badges(
         db, user_id=current_user.id, earned_only=completed_only
@@ -120,7 +134,19 @@ async def create_badge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new badge (admin only)."""
+    """
+    Create a new badge (admin only).
+    
+    Example request body:
+    {
+        "name": "CV Master",
+        "description": "Complete your CV with all sections",
+        "badge_type": "achievement",
+        "rarity": "rare",
+        "icon_url": "https://cdn.example.com/badges/cv-master.png",
+        "points_reward": 100
+    }
+    """
     # TODO: Add admin permission check
     gamification_service = get_gamification_service()
     badge = await gamification_service.create_badge(db, badge_data.model_dump())
@@ -137,7 +163,12 @@ async def get_challenges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all available challenges with optional filtering."""
+    """
+    Get all available challenges with optional filtering.
+    
+    Example query parameters:
+    ?status=active&challenge_type=weekly&featured_only=true&limit=10
+    """
     gamification_service = get_gamification_service()
     challenges = await gamification_service.get_challenges(
         db, skip=skip, limit=limit, status=status, 
@@ -196,7 +227,11 @@ async def join_challenge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Join a challenge."""
+    """
+    Join a challenge.
+    
+    Example: POST /api/v1/gamification/challenges/12/join
+    """
     gamification_service = get_gamification_service()
     
     try:
@@ -243,7 +278,21 @@ async def create_challenge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new challenge (admin only)."""
+    """
+    Create a new challenge (admin only).
+    
+    Example request body:
+    {
+        "title": "Apply to 10 Jobs This Week",
+        "description": "Submit applications to 10 different job postings",
+        "challenge_type": "weekly",
+        "start_date": "2025-11-04",
+        "end_date": "2025-11-10",
+        "target_value": 10,
+        "points_reward": 500,
+        "is_featured": true
+    }
+    """
     # TODO: Add admin permission check
     gamification_service = get_gamification_service()
     challenge_payload = challenge_data.model_dump()
@@ -271,7 +320,14 @@ async def update_streak(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a specific streak type for the user."""
+    """
+    Update a specific streak type for the user.
+    
+    Example request body:
+    {
+        "activity_date": "2025-11-04"
+    }
+    """
     gamification_service = get_gamification_service()
     
     try:
@@ -332,7 +388,17 @@ async def award_points(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Award points to user for an activity."""
+    """
+    Award points to user for an activity.
+    
+    Example request body:
+    {
+        "activity_type": "job_application",
+        "points": 50,
+        "source_id": 123,
+        "description": "Applied to Senior Developer position"
+    }
+    """
     gamification_service = get_gamification_service()
     
     try:
@@ -382,7 +448,12 @@ async def get_leaderboard_entries(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get leaderboard entries."""
+    """
+    Get leaderboard entries.
+    
+    Example query parameters:
+    ?skip=0&limit=100
+    """
     gamification_service = get_gamification_service()
     entries = await gamification_service.get_leaderboard_entries(
         db, leaderboard_id=leaderboard_id, skip=skip, limit=limit
@@ -412,7 +483,11 @@ async def get_user_level(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get current user's level and progression."""
+    """
+    Get current user's level and progression.
+    
+    Example: No parameters required - returns current user's level info
+    """
     gamification_service = get_gamification_service()
     level = await gamification_service.get_user_level(db, current_user.id)
     if not level:
@@ -461,7 +536,11 @@ async def get_gamification_dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get gamification dashboard data."""
+    """
+    Get gamification dashboard data.
+    
+    Example: No parameters required - returns comprehensive dashboard with badges, challenges, points, streaks
+    """
     gamification_service = get_gamification_service()
     dashboard = await gamification_service.get_dashboard_data(db, current_user.id)
     return dashboard
@@ -536,6 +615,16 @@ async def activity_hook(
     """
     Hook for other services to trigger gamification events.
     Called when users complete activities (CV updates, project uploads, etc.)
+    
+    Example request body:
+    {
+        "activity_type": "cv_completed",
+        "entity_id": 42,
+        "metadata": {
+            "sections_completed": 5,
+            "quality_score": 85
+        }
+    }
     """
     gamification_service = get_gamification_service()
     

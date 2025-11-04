@@ -592,9 +592,11 @@ class JobSearchService:
             return job_matching_service.get_matching_capabilities()
         except Exception as e:
             return {
-                "error": str(e),
-                "fallback_available": True,
-                "features": ["Basic job aggregation from free APIs"]
+                "sentence_transformers_available": False,
+                "embedding_model": None,
+                "fallback_method": "Basic job aggregation",
+                "features": ["Basic job aggregation from free APIs"],
+                "error": str(e)
             }
 
 
