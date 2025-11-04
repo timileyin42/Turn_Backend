@@ -296,6 +296,11 @@ class UserPreferencesUpdate(BaseModel):
 class UserSearchRequest(BaseModel):
     """User search request schema."""
     query: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, description="Filter by user role")
+    is_active: Optional[bool] = Field(None, description="Filter by active status")
+    email_verified: Optional[bool] = Field(None, description="Filter by email verification status")
+    date_from: Optional[datetime] = Field(None, description="Filter by creation date (inclusive)")
+    date_to: Optional[datetime] = Field(None, description="Filter by creation date (inclusive)")
     skills: Optional[List[str]] = None
     experience_level: Optional[str] = Field(None, pattern="^(junior|mid|senior|lead)$")
     location: Optional[str] = Field(None, max_length=100)

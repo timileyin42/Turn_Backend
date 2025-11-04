@@ -307,7 +307,9 @@ class DirectApplicationService:
         
         result = await db.execute(
             select(User)
-            .options(selectinload(User.profile))
+            .options(
+                selectinload(User.profile).selectinload(Profile.skills)
+            )
             .where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
@@ -330,7 +332,7 @@ class DirectApplicationService:
             'portfolio': profile.portfolio_url,
             'location': f"{profile.city}, {profile.country}" if profile.city else profile.country,
             'bio': profile.bio,
-            'availability': profile.availability
+            'availability': (profile.preferences or {}).get('availability') if profile.preferences else None
         }
     
     def _select_best_recipient(

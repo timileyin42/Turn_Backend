@@ -109,7 +109,7 @@ async def get_badge_progress(
     """Get current user's progress towards all badges."""
     gamification_service = get_gamification_service()
     progress = await gamification_service.get_badge_progress(
-        db, user_id=current_user.id
+        db, user_id=current_user.id, badge_type=badge_type
     )
     return progress
 
@@ -246,7 +246,9 @@ async def create_challenge(
     """Create a new challenge (admin only)."""
     # TODO: Add admin permission check
     gamification_service = get_gamification_service()
-    challenge = await gamification_service.create_challenge(db, challenge_data.model_dump())
+    challenge_payload = challenge_data.model_dump()
+    challenge_payload.setdefault("status", "active")
+    challenge = await gamification_service.create_challenge(db, challenge_payload)
     return challenge
 
 
@@ -491,10 +493,11 @@ async def initialize_user_gamification(
     gamification_service = get_gamification_service()
     
     try:
-        await gamification_service.initialize_user(db, current_user.id)
+        init_payload = await gamification_service.initialize_user(db, current_user.id)
         return GamificationSystemResponse(
             success=True,
-            message="Gamification system initialized successfully"
+            message="Gamification system initialized successfully",
+            data=init_payload
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to initialize gamification system")

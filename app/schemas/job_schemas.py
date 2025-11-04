@@ -348,8 +348,14 @@ class JobSearchRequest(BaseModel):
     required_skills: Optional[List[str]] = None
     company_size: Optional[str] = Field(None, pattern="^(startup|small|medium|large|enterprise)$")
     posted_since: Optional[int] = Field(None, ge=1, le=365)  # days
+    posted_within_days: Optional[int] = Field(None, ge=1, le=365)
     is_entry_level_friendly: Optional[bool] = None
     is_remote_friendly: Optional[bool] = None
+    remote_only: Optional[bool] = None
+    sort_by: Optional[str] = Field(
+        None,
+        pattern="^(posted_date_desc|posted_date_asc|salary_desc|relevance)$"
+    )
 
 
 class AutoApplicationRequest(BaseModel):

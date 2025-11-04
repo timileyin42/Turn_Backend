@@ -1,7 +1,7 @@
 """
 User management service for profile operations and user data handling.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_, or_
@@ -258,21 +258,27 @@ class UserService:
             search_term = f"%{search_params.query}%"
             conditions.append(
                 or_(
-                    User.first_name.ilike(search_term),
-                    User.last_name.ilike(search_term),
                     User.username.ilike(search_term),
-                    User.email.ilike(search_term)
+                    User.email.ilike(search_term),
+                    User.profile.has(Profile.first_name.ilike(search_term)),
+                    User.profile.has(Profile.last_name.ilike(search_term))
                 )
             )
         
         if search_params.role:
-            conditions.append(User.role == search_params.role)
+            from app.database.user_models import UserRole
+            try:
+                role_value = UserRole(search_params.role)
+            except ValueError:
+                role_value = None
+            if role_value is not None:
+                conditions.append(User.role == role_value)
         
         if search_params.is_active is not None:
             conditions.append(User.is_active == search_params.is_active)
         
         if search_params.email_verified is not None:
-            conditions.append(User.email_verified == search_params.email_verified)
+            conditions.append(User.is_verified == search_params.email_verified)
         
         if search_params.date_from:
             conditions.append(User.created_at >= search_params.date_from)
@@ -456,21 +462,61 @@ class UserService:
         user = await self._get_user_model_by_id(db, user_id)
         if not user:
             return {}
-        
-        # TODO: Implement stats aggregation queries
-        # This would include project count, CV count, job applications, etc.
-        # For now, return basic info
-        
-        return {
+
+        projects = user.projects or []
+        cvs = user.cvs or []
+        job_applications = getattr(user, "job_applications", []) or []
+        portfolios = user.portfolios or []
+
+        def _sortable_timestamp(value: Optional[datetime]) -> datetime:
+            if value is None:
+                return datetime.min.replace(tzinfo=timezone.utc)
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value
+
+        stats: Dict[str, Any] = {
             "user_id": user_id,
             "account_created": user.created_at,
-            "last_login": user.last_login_at,
-            "email_verified": user.email_verified,
-            "role": user.role,
+            "last_login": user.last_login,
+            "is_verified": user.is_verified,
+            "role": user.role.value if hasattr(user.role, "value") else user.role,
             "is_active": user.is_active,
             "has_profile": user.profile is not None,
-            "is_mentor": user.mentor_profile is not None
+            "is_mentor": user.mentor_profile is not None,
+            "counts": {
+                "projects": len(projects),
+                "cvs": len(cvs),
+                "job_applications": len(job_applications),
+                "portfolios": len(portfolios)
+            }
         }
+
+        # Surface a quick snapshot of the latest project/job activity if available
+        if projects:
+            latest_project = max(projects, key=lambda p: _sortable_timestamp(getattr(p, "updated_at", None) or getattr(p, "created_at", None)))
+            stats["latest_project_activity"] = {
+                "project_id": latest_project.id,
+                "title": getattr(latest_project, "title", None),
+                "updated_at": latest_project.updated_at,
+            }
+
+        if job_applications:
+            latest_application = max(
+                job_applications,
+                key=lambda a: _sortable_timestamp(
+                    getattr(a, "updated_at", None)
+                    or getattr(a, "applied_at", None)
+                    or getattr(a, "created_at", None)
+                )
+            )
+            stats["latest_job_application"] = {
+                "application_id": latest_application.id,
+                "status": getattr(latest_application, "status", None),
+                "created_at": getattr(latest_application, "created_at", None),
+            }
+
+        return stats
     
     async def _get_user_model_by_id(
         self, 
@@ -482,7 +528,11 @@ class UserService:
             select(User)
             .options(
                 selectinload(User.profile),
-                selectinload(User.mentor_profile)
+                selectinload(User.mentor_profile),
+                selectinload(User.projects),
+                selectinload(User.cvs),
+                selectinload(User.job_applications),
+                selectinload(User.portfolios)
             )
             .where(User.id == user_id)
         )

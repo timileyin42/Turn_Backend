@@ -186,7 +186,7 @@ class PointTransactionResponse(BaseModel):
     source_type: str
     source_id: Optional[int] = None
     description: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(default=None, alias="transaction_metadata")
     balance_before: int
     balance_after: int
     created_at: datetime

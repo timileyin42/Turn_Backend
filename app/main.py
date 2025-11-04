@@ -2,16 +2,22 @@
 TURN - Project Manager Career Platform
 FastAPI main application with PostgreSQL backend.
 """
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.routes import routers
 from app.core.logging_middleware import RequestLoggingMiddleware, DatabaseQueryLoggingMiddleware
+
+EXPORT_ROOT = Path(__file__).resolve().parent.parent / "exports"
+EXPORT_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
@@ -167,6 +173,9 @@ if not settings.debug:
 # Include all routers
 for router in routers:
     app.include_router(router, prefix="/api/v1")
+
+# Static exports directory
+app.mount("/exports", StaticFiles(directory=str(EXPORT_ROOT)), name="exports")
 
 
 # Health check endpoint

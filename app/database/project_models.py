@@ -47,6 +47,13 @@ class ArtifactType(str, enum.Enum):
     LESSONS_LEARNED = "lessons_learned"
 
 
+class CollaborationStatus(str, enum.Enum):
+    """Invitation lifecycle for project collaborators."""
+    INVITED = "invited"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
 class ProjectSimulation(Base):
     """Main project simulation entity."""
     
@@ -95,6 +102,7 @@ class ProjectSimulation(Base):
     phases: Mapped[List["ProjectPhase"]] = relationship("ProjectPhase", back_populates="project", cascade="all, delete-orphan")
     artifacts: Mapped[List["ProjectArtifact"]] = relationship("ProjectArtifact", back_populates="project", cascade="all, delete-orphan")
     ai_sessions: Mapped[List["AiCoachingSession"]] = relationship("AiCoachingSession", back_populates="project", cascade="all, delete-orphan")
+    collaborators: Mapped[List["ProjectCollaborator"]] = relationship("ProjectCollaborator", back_populates="project", cascade="all, delete-orphan")
 
     # Indexes for performance optimization
     __table_args__ = (
@@ -241,6 +249,38 @@ class ProjectTask(Base):
         Index('idx_project_tasks_completed_priority', 'is_completed', 'priority'),
         Index('idx_project_tasks_assigned_completed', 'assigned_team_member', 'is_completed'),
         
+        {"sqlite_autoincrement": True}
+    )
+
+
+class ProjectCollaborator(Base):
+    """Project collaborators with optional external invites."""
+
+    __tablename__ = "project_collaborators"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("project_simulations.id", ondelete="CASCADE"), nullable=False)
+    collaborator_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    collaborator_email: Mapped[Optional[str]] = mapped_column(String(320), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), default="viewer", nullable=False)
+    permissions: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
+    invite_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    invitation_status: Mapped[CollaborationStatus] = mapped_column(SQLEnum(CollaborationStatus), default=CollaborationStatus.INVITED, nullable=False)
+    invited_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    project: Mapped["ProjectSimulation"] = relationship("ProjectSimulation", back_populates="collaborators")
+    collaborator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[collaborator_user_id])
+    invited_by: Mapped["User"] = relationship("User", foreign_keys=[invited_by_user_id])
+
+    __table_args__ = (
+        Index("idx_project_collaborators_project", "project_id"),
+        Index("idx_project_collaborators_user", "collaborator_user_id"),
+        Index("idx_project_collaborators_email", "collaborator_email"),
+        Index("idx_project_collaborators_status", "invitation_status"),
+        Index("idx_project_collaborators_project_user", "project_id", "collaborator_user_id"),
+        Index("idx_project_collaborators_project_email", "project_id", "collaborator_email"),
         {"sqlite_autoincrement": True}
     )
 
@@ -422,5 +462,5 @@ class ProjectTemplate(Base):
 
 # Aliases for compatibility  
 Project = ProjectSimulation
-ProjectCollaborator = ProjectSimulation  # Placeholder - need to create proper model if needed
+ProjectCollaboratorModel = ProjectCollaborator
 AICoachingSession = AiCoachingSession

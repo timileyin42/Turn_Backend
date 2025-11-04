@@ -3,7 +3,7 @@ Direct Application API Endpoints
 One-click direct application to company decision makers (CEO/HR/Founders).
 Focus on startups and SMEs where direct outreach is most effective.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from pydantic import BaseModel, Field, HttpUrl
@@ -85,8 +85,9 @@ class BatchApplicationResponse(BaseModel):
 @router.post("/one-click-apply", response_model=DirectApplicationResponse)
 @user_limiter.limit(RateLimitTiers.AUTO_APPLY_SCAN)
 async def one_click_direct_apply(
-    request: DirectApplicationRequest,
+    payload: DirectApplicationRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -115,10 +116,10 @@ async def one_click_direct_apply(
         result = await direct_application_service.find_and_apply_direct(
             db=db,
             user_id=current_user.id,
-            company_url=str(request.company_url),
-            company_name=request.company_name,
-            job_title=request.job_title,
-            user_message=request.custom_message
+            company_url=str(payload.company_url),
+            company_name=payload.company_name,
+            job_title=payload.job_title,
+            user_message=payload.custom_message
         )
         
         if not result.get('success'):
@@ -150,7 +151,8 @@ async def one_click_direct_apply(
 @router.post("/scan-company", response_model=CompanyScanResponse)
 @user_limiter.limit("20/hour")
 async def scan_company_website(
-    request: CompanyScanRequest,
+    payload: CompanyScanRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -174,8 +176,8 @@ async def scan_company_website(
     try:
         async with company_scanner_service as scanner:
             scan_result = await scanner.scan_company_website(
-                company_url=str(request.company_url),
-                company_name=request.company_name
+                company_url=str(payload.company_url),
+                company_name=payload.company_name
             )
         
         return CompanyScanResponse(**scan_result)
@@ -190,8 +192,9 @@ async def scan_company_website(
 @router.post("/batch-apply", response_model=BatchApplicationResponse)
 @user_limiter.limit("3/day")
 async def batch_apply_to_companies(
-    request: BatchApplicationRequest,
+    payload: BatchApplicationRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -217,7 +220,7 @@ async def batch_apply_to_companies(
     """
     try:
         # Validate company list
-        if len(request.companies) > 10:
+        if len(payload.companies) > 10:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Maximum 10 companies per batch request"
@@ -227,7 +230,7 @@ async def batch_apply_to_companies(
         result = await direct_application_service.batch_apply_to_startups(
             db=db,
             user_id=current_user.id,
-            company_list=request.companies,
+            company_list=payload.companies,
             max_applications=10
         )
         

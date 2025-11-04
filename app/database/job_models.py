@@ -385,4 +385,4 @@ class SavedJob(Base):
 # Aliases for compatibility
 Job = JobListing
 JobRecommendation = JobListing  # Placeholder alias
-Company = JobListing  # Placeholder alias
+Company = CompanyProfile

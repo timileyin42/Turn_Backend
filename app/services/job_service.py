@@ -8,8 +8,11 @@ from sqlalchemy import select, update, and_, or_, func, desc, text
 from sqlalchemy.orm import selectinload
 
 from app.database.job_models import (
-    Job, JobApplication, JobAlert, JobRecommendation,
-    Company, JobSkillRequirement
+    Job,
+    JobApplication,
+    JobAlert,
+    JobSkillRequirement,
+    CompanyProfile
 )
 from app.schemas.job_schemas import (
     JobCreate, JobUpdate, JobResponse, JobListResponse,
@@ -40,9 +43,10 @@ class JobService:
         Returns:
             Created job response
         """
+        payload = job_data.model_dump()
         db_job = Job(
-            **job_data.model_dump(),
-            created_at=datetime.utcnow(),
+            **payload,
+            scraped_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
@@ -69,10 +73,7 @@ class JobService:
         """
         result = await db.execute(
             select(Job)
-            .options(
-                selectinload(Job.company),
-                selectinload(Job.skill_requirements)
-            )
+            .options(selectinload(Job.skill_requirements))
             .where(Job.id == job_id)
         )
         job = result.scalar_one_or_none()
@@ -101,12 +102,9 @@ class JobService:
         Returns:
             Filtered job list
         """
-        query = select(Job).options(
-            selectinload(Job.company),
-            selectinload(Job.skill_requirements)
-        )
+        query = select(Job).options(selectinload(Job.skill_requirements))
         
-        conditions = [Job.is_active == True]
+        conditions = [Job.is_active.is_(True)]
         
         # Text search
         if search_params.query:
@@ -115,19 +113,18 @@ class JobService:
                 or_(
                     Job.title.ilike(search_term),
                     Job.description.ilike(search_term),
-                    Job.company.has(Company.name.ilike(search_term))
+                    Job.company_name.ilike(search_term)
                 )
             )
         
         # Location filter
         if search_params.location:
             location_term = f"%{search_params.location}%"
-            conditions.append(
-                or_(
-                    Job.location.ilike(location_term),
-                    Job.remote_type.in_(["remote", "hybrid"])
-                )
-            )
+            conditions.append(Job.location.ilike(location_term))
+
+        # Work mode filter
+        if getattr(search_params, "work_mode", None):
+            conditions.append(Job.work_mode == search_params.work_mode)
         
         # Employment type
         if search_params.employment_type:
@@ -145,8 +142,11 @@ class JobService:
             conditions.append(Job.salary_max <= search_params.salary_max)
         
         # Remote work
-        if search_params.remote_only:
-            conditions.append(Job.remote_type.in_(["remote", "hybrid"]))
+        if getattr(search_params, "remote_only", None):
+            conditions.append(Job.work_mode.in_(["remote", "hybrid"]))
+
+        if getattr(search_params, "is_remote_friendly", None):
+            conditions.append(Job.is_remote_friendly.is_(True))
         
         # Skills
         if search_params.required_skills:
@@ -159,12 +159,13 @@ class JobService:
         
         # Company size
         if search_params.company_size:
-            conditions.append(Job.company.has(Company.size == search_params.company_size))
+            conditions.append(Job.company_size == search_params.company_size)
         
         # Date posted
-        if search_params.posted_within_days:
-            cutoff_date = datetime.utcnow() - timedelta(days=search_params.posted_within_days)
-            conditions.append(Job.posted_date >= cutoff_date)
+        posted_window = getattr(search_params, "posted_within_days", None) or getattr(search_params, "posted_since", None)
+        if posted_window:
+            cutoff_date = datetime.utcnow() - timedelta(days=posted_window)
+            conditions.append(Job.posted_at >= cutoff_date)
         
         query = query.where(and_(*conditions))
         
@@ -174,15 +175,16 @@ class JobService:
         total = total_result.scalar()
         
         # Apply sorting
-        if search_params.sort_by == "salary_desc":
+        sort_by = getattr(search_params, "sort_by", None)
+        if sort_by == "salary_desc":
             query = query.order_by(desc(Job.salary_max))
-        elif search_params.sort_by == "posted_date_desc":
-            query = query.order_by(desc(Job.posted_date))
-        elif search_params.sort_by == "relevance":
+        elif sort_by == "posted_date_asc":
+            query = query.order_by(Job.posted_at.asc())
+        elif sort_by in {"relevance", "posted_date_desc"}:
             # TODO: Implement relevance scoring based on user profile
-            query = query.order_by(desc(Job.posted_date))
+            query = query.order_by(desc(Job.posted_at))
         else:
-            query = query.order_by(desc(Job.posted_date))
+            query = query.order_by(desc(Job.posted_at))
         
         # Apply pagination
         query = query.offset(skip).limit(limit)
@@ -223,7 +225,7 @@ class JobService:
             select(JobApplication).where(
                 and_(
                     JobApplication.user_id == user_id,
-                    JobApplication.job_id == application_data.job_id
+                    JobApplication.job_listing_id == application_data.job_listing_id
                 )
             )
         )
@@ -265,7 +267,7 @@ class JobService:
         result = await db.execute(
             select(JobApplication)
             .options(
-                selectinload(JobApplication.job).selectinload(Job.company)
+                selectinload(JobApplication.job_listing).selectinload(Job.skill_requirements)
             )
             .where(JobApplication.user_id == user_id)
             .order_by(desc(JobApplication.applied_at))
@@ -405,8 +407,8 @@ class JobService:
             # Build search query based on alert criteria
             job_query = select(Job).where(
                 and_(
-                    Job.posted_date > last_check,
-                    Job.is_active == True
+                    Job.posted_at > last_check,
+                    Job.is_active.is_(True)
                 )
             )
             
@@ -486,26 +488,27 @@ class JobService:
         
         result = await db.execute(
             select(Job)
-            .options(selectinload(Job.company))
-            .where(Job.is_active == True)
-            .order_by(desc(Job.posted_date))
+            .options(selectinload(Job.skill_requirements))
+            .where(Job.is_active.is_(True))
+            .order_by(desc(Job.posted_at))
             .limit(limit)
         )
         jobs = result.scalars().all()
         
-        recommendations = []
-        for i, job in enumerate(jobs):
-            recommendation = JobRecommendation(
-                user_id=user_id,
-                job_id=job.id,
-                score=0.8 - (i * 0.05),  # Simple scoring
-                reason="Recent job matching your profile",
-                created_at=datetime.utcnow()
-            )
+        recommendations: List[JobRecommendationResponse] = []
+        for index, job in enumerate(jobs):
+            job_payload = JobResponse.model_validate(job).model_dump()
+            score = max(0.0, min(1.0, 0.8 - (index * 0.05)))
             recommendations.append(
-                JobRecommendationResponse.model_validate(recommendation)
+                JobRecommendationResponse(
+                    job=job_payload,
+                    similarity_score=score,
+                    match_reasons=["Recent job matching your profile"],
+                    matching_method="recency",
+                    recommended_action="Apply now"
+                )
             )
-        
+
         return recommendations
     
     # Company Management
@@ -525,7 +528,7 @@ class JobService:
         Returns:
             Created company response
         """
-        db_company = Company(
+        db_company = CompanyProfile(
             **company_data.model_dump(),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -553,7 +556,7 @@ class JobService:
             Company response
         """
         result = await db.execute(
-            select(Company).where(Company.id == company_id)
+            select(CompanyProfile).where(CompanyProfile.id == company_id)
         )
         company = result.scalar_one_or_none()
         
@@ -590,7 +593,7 @@ class JobService:
         
         # Count applications
         app_count_result = await db.execute(
-            select(func.count(JobApplication.id)).where(JobApplication.job_id == job_id)
+            select(func.count(JobApplication.id)).where(JobApplication.job_listing_id == job_id)
         )
         total_applications = app_count_result.scalar()
         
@@ -598,7 +601,7 @@ class JobService:
         status_counts = {}
         status_result = await db.execute(
             select(JobApplication.status, func.count(JobApplication.id))
-            .where(JobApplication.job_id == job_id)
+                .where(JobApplication.job_listing_id == job_id)
             .group_by(JobApplication.status)
         )
         
@@ -610,8 +613,8 @@ class JobService:
             total_applications=total_applications,
             applications_by_status=status_counts,
             views_count=0,  # TODO: Implement view tracking
-            posted_date=job.posted_date,
-            days_since_posted=(datetime.utcnow() - job.posted_date).days if job.posted_date else 0
+            posted_date=job.posted_at,
+            days_since_posted=(datetime.utcnow() - job.posted_at).days if job.posted_at else 0
         )
     
     async def get_user_application_analytics(

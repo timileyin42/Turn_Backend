@@ -110,7 +110,7 @@ class WorkExperienceBase(BaseModel):
 
 class WorkExperienceCreate(WorkExperienceBase):
     """Schema for creating work experience."""
-    cv_id: int = Field(..., gt=0)
+    cv_id: Optional[int] = Field(None, gt=0)
 
 
 class WorkExperienceUpdate(BaseModel):
@@ -163,7 +163,7 @@ class EducationBase(BaseModel):
 
 class EducationCreate(EducationBase):
     """Schema for creating education."""
-    cv_id: int = Field(..., gt=0)
+    cv_id: Optional[int] = Field(None, gt=0)
 
 
 class EducationUpdate(BaseModel):
@@ -224,7 +224,7 @@ class CVSkillBase(BaseModel):
 
 class CVSkillCreate(CVSkillBase):
     """Schema for creating CV skill."""
-    cv_id: int = Field(..., gt=0)
+    cv_id: Optional[int] = Field(None, gt=0)
 
 
 class CVSkillUpdate(BaseModel):
@@ -469,7 +469,7 @@ class CVSectionBase(BaseModel):
 
 class CVSectionCreate(CVSectionBase):
     """Schema for creating CV section."""
-    cv_id: int = Field(..., gt=0)
+    cv_id: Optional[int] = Field(None, gt=0)
 
 
 class CVSectionUpdate(BaseModel):

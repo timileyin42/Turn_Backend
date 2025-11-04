@@ -8,19 +8,39 @@ from sqlalchemy import select, update, and_, or_, func, desc
 from sqlalchemy.orm import selectinload
 
 from app.database.project_models import (
-    ProjectSimulation, ProjectTask, ProjectTemplate, ProjectPhase, ProjectArtifact,
-    AiCoachingSession, AICoachingSession
+    ProjectSimulation,
+    ProjectTask,
+    ProjectTemplate,
+    ProjectPhase,
+    ProjectArtifact,
+    AiCoachingSession,
+    AICoachingSession,
+    ProjectCollaborator,
+    CollaborationStatus,
 )
 from app.database.user_models import User, UserRole
 from app.schemas.project_schemas import (
-    ProjectSimulationCreate, ProjectSimulationUpdate, ProjectSimulationResponse, 
-    ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskResponse,
-    ProjectTemplateResponse, AiCoachingSessionCreate, AiCoachingSessionResponse,
-    ProjectPhaseCreate, ProjectPhaseUpdate, ProjectPhaseResponse,
-    ProjectArtifactCreate, ProjectArtifactResponse,
-    ProjectListResponse, ProjectSearchRequest, 
-    AICoachingSessionCreate, AICoachingSessionResponse,
-    ProjectAnalyticsResponse
+    ProjectSimulationCreate,
+    ProjectSimulationUpdate,
+    ProjectSimulationResponse,
+    ProjectTaskCreate,
+    ProjectTaskUpdate,
+    ProjectTaskResponse,
+    ProjectTemplateResponse,
+    AiCoachingSessionCreate,
+    AiCoachingSessionResponse,
+    ProjectPhaseCreate,
+    ProjectPhaseUpdate,
+    ProjectPhaseResponse,
+    ProjectArtifactCreate,
+    ProjectArtifactResponse,
+    ProjectListResponse,
+    ProjectSearchRequest,
+    AICoachingSessionCreate,
+    AICoachingSessionResponse,
+    ProjectAnalyticsResponse,
+    ProjectCollaboratorCreate,
+    ProjectCollaboratorResponse,
 )
 from app.services.ai_service import ai_service
 
@@ -567,10 +587,93 @@ class ProjectService:
         )
     
     # Collaboration
-    
-    # Collaboration features not yet implemented
-    # async def add_collaborator(...): 
-    #     pass
+
+    async def add_collaborator(
+        self,
+        db: AsyncSession,
+        project_id: int,
+        user_id: int,
+        collaborator_data: ProjectCollaboratorCreate,
+    ) -> Optional[ProjectCollaboratorResponse]:
+        """Add a collaborator to a project."""
+
+        project = await self._get_project_with_access_check(
+            db, project_id, user_id, require_write=True
+        )
+        if not project:
+            return None
+
+        target_user: Optional[User] = None
+        collaborator_user_id = collaborator_data.collaborator_user_id
+        collaborator_email = (
+            collaborator_data.collaborator_email.lower()
+            if collaborator_data.collaborator_email
+            else None
+        )
+
+        if collaborator_user_id:
+            user_result = await db.execute(
+                select(User).where(User.id == collaborator_user_id)
+            )
+            target_user = user_result.scalar_one_or_none()
+            if not target_user:
+                raise ValueError("Collaborator user not found")
+
+        if not target_user and collaborator_email:
+            email_result = await db.execute(
+                select(User).where(func.lower(User.email) == collaborator_email)
+            )
+            target_user = email_result.scalar_one_or_none()
+
+        if target_user:
+            collaborator_user_id = target_user.id
+            collaborator_email = target_user.email.lower()
+            if collaborator_user_id == project.user_id:
+                raise ValueError("Project owner is already a collaborator by default")
+
+        if collaborator_data.collaborator_email and target_user and collaborator_email != collaborator_data.collaborator_email.lower():
+            raise ValueError("Provided email does not match collaborator account")
+
+        if collaborator_user_id:
+            existing_by_user = await db.execute(
+                select(ProjectCollaborator).where(
+                    ProjectCollaborator.project_id == project_id,
+                    ProjectCollaborator.collaborator_user_id == collaborator_user_id,
+                )
+            )
+            if existing_by_user.scalar_one_or_none():
+                raise ValueError("Collaborator already added to this project")
+
+        if collaborator_email:
+            existing_by_email = await db.execute(
+                select(ProjectCollaborator).where(
+                    ProjectCollaborator.project_id == project_id,
+                    func.lower(ProjectCollaborator.collaborator_email) == collaborator_email,
+                )
+            )
+            if existing_by_email.scalar_one_or_none():
+                raise ValueError("Collaborator already invited with this email")
+
+        invitation_status = (
+            CollaborationStatus.ACCEPTED if target_user else CollaborationStatus.INVITED
+        )
+
+        db_collaborator = ProjectCollaborator(
+            project_id=project_id,
+            collaborator_user_id=collaborator_user_id,
+            collaborator_email=collaborator_email,
+            role=collaborator_data.role,
+            permissions=collaborator_data.permissions,
+            invite_message=collaborator_data.invite_message,
+            invitation_status=invitation_status,
+            invited_by_user_id=user_id,
+        )
+
+        db.add(db_collaborator)
+        await db.commit()
+        await db.refresh(db_collaborator)
+
+        return ProjectCollaboratorResponse.model_validate(db_collaborator)
     
     # Helper methods
     

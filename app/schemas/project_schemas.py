@@ -3,9 +3,14 @@ Project simulation and AI coaching Pydantic v2 schemas.
 """
 from datetime import datetime
 from typing import Optional, Any, List, Dict, TypedDict
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator, EmailStr
 
-from app.database.project_models import ProjectMethodology, ProjectStatus, ArtifactType
+from app.database.project_models import (
+    ProjectMethodology,
+    ProjectStatus,
+    ArtifactType,
+    CollaborationStatus,
+)
 
 
 # Base schemas
@@ -126,7 +131,7 @@ class ProjectTaskBase(BaseModel):
 
 class ProjectTaskCreate(ProjectTaskBase):
     """Schema for creating project task."""
-    phase_id: int = Field(..., gt=0)
+    phase_id: Optional[int] = Field(None, gt=0)
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -281,6 +286,42 @@ class ProjectSimulationDetailed(ProjectSimulationResponse):
     ai_sessions: List[AiCoachingSessionResponse] = []
 
 
+class ProjectCollaboratorBase(BaseModel):
+    """Shared fields for project collaborators."""
+
+    role: str = Field("viewer", min_length=1, max_length=50)
+    permissions: List[str] = Field(default_factory=list)
+    invite_message: Optional[str] = Field(None, max_length=500)
+
+
+class ProjectCollaboratorCreate(ProjectCollaboratorBase):
+    """Schema for adding project collaborator."""
+
+    collaborator_user_id: Optional[int] = Field(None, gt=0)
+    collaborator_email: Optional[EmailStr] = None
+
+    @model_validator(mode="after")
+    def validate_contact(cls, values: "ProjectCollaboratorCreate") -> "ProjectCollaboratorCreate":
+        if not values.collaborator_user_id and not values.collaborator_email:
+            raise ValueError("Either collaborator_user_id or collaborator_email must be provided")
+        return values
+
+
+class ProjectCollaboratorResponse(ProjectCollaboratorBase):
+    """Response schema for project collaborator."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    collaborator_user_id: Optional[int] = None
+    collaborator_email: Optional[EmailStr] = None
+    invitation_status: CollaborationStatus
+    invited_by_user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class ProjectListResponse(TypedDict):
     """Paginated project list response."""
     projects: List[ProjectSimulationResponse]
@@ -363,7 +404,5 @@ ProjectCreate = ProjectSimulationCreate
 ProjectUpdate = ProjectSimulationUpdate
 ProjectResponse = ProjectSimulationResponse
 ProjectAnalyticsResponse = ProjectAnalyticsMetrics
-ProjectCollaboratorCreate = Dict[str, Any]  # Placeholder
-ProjectCollaboratorResponse = Dict[str, Any]  # Placeholder  
 AICoachingSessionCreate = AiCoachingSessionCreate
 AICoachingSessionResponse = AiCoachingSessionResponse

@@ -69,6 +69,25 @@ async def get_my_cvs(
 
 
 @router.get(
+    "/templates",
+    response_model=List[CVTemplateResponse],
+    summary="Get CV templates",
+    description="Get available CV templates"
+)
+async def get_cv_templates(
+    db: AsyncSession = Depends(get_db)
+):
+    """Get available CV templates."""
+    try:
+        return await cv_service.get_cv_templates(db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve CV templates"
+        )
+
+
+@router.get(
     "/{cv_id}",
     response_model=CVResponse,
     summary="Get CV by ID",
@@ -408,28 +427,6 @@ async def export_cv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export CV"
         )
-
-
-# Templates
-
-@router.get(
-    "/templates",
-    response_model=List[CVTemplateResponse],
-    summary="Get CV templates",
-    description="Get available CV templates"
-)
-async def get_cv_templates(
-    db: AsyncSession = Depends(get_db)
-):
-    """Get available CV templates."""
-    try:
-        return await cv_service.get_cv_templates(db)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve CV templates"
-        )
-
 
 # Analytics
 

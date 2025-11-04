@@ -193,6 +193,10 @@ class AIService:
 
         return "I'm having trouble processing your request right now. Please try again later."
 
+    async def generate_response(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Public wrapper for backward compatibility with existing callers."""
+        return await self._generate_response(prompt, system_prompt)
+
     async def generate_project_coaching_response(
         self,
         session_type: str,

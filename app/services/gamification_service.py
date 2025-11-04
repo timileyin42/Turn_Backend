@@ -2,7 +2,7 @@
 Comprehensive gamification service for TURN platform.
 Handles badges, challenges, streaks, points, leaderboards, and user progression.
 """
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_, or_, func, desc, asc
@@ -15,9 +15,11 @@ from app.database.gamification_models import (
 )
 from app.database.platform_models import UserPoints
 from app.schemas.gamification_schemas import (
-    BadgeResponse, UserBadgeResponse, ChallengeResponse, 
-    ChallengeParticipationResponse, StreakResponse, LeaderboardResponse,
-    UserLevelResponse, PointTransactionResponse, GamificationStatsResponse
+    BadgeResponse, UserBadgeResponse, BadgeProgressResponse,
+    ChallengeResponse, ChallengeParticipationResponse, StreakResponse,
+    LeaderboardResponse, UserLevelResponse, PointTransactionResponse,
+    GamificationStatsResponse, WeeklyChallengesSummary,
+    ActivityFeedItem, ActivityFeedResponse
 )
 
 
@@ -50,49 +52,76 @@ class GamificationService:
     ) -> Dict[str, Any]:
         """Initialize gamification data for a new user."""
         try:
-            # Create user points record
-            user_points = UserPoints(
-                user_id=user_id,
-                total_points=0,
-                available_points=0,
-                lifetime_points=0,
-                current_level=1,
-                points_to_next_level=100,
-                current_streak=0,
-                longest_streak=0
+            initialized_objects = 0
+
+            points_result = await db.execute(
+                select(UserPoints).where(UserPoints.user_id == user_id)
             )
-            db.add(user_points)
-            
-            # Create user level progression
-            user_level = UserLevel(
-                user_id=user_id,
-                current_level=1,
-                current_xp=0,
-                total_xp=0,
-                xp_to_next_level=100,
-                current_title="Aspiring PM"
-            )
-            db.add(user_level)
-            
-            # Initialize basic streaks
-            streak_types = [StreakType.DAILY_LOGIN, StreakType.LEARNING, StreakType.PROJECT_WORK]
-            for streak_type in streak_types:
-                user_streak = UserStreak(
+            user_points = points_result.scalar_one_or_none()
+
+            if not user_points:
+                user_points = UserPoints(
                     user_id=user_id,
-                    streak_type=streak_type,
+                    total_points=0,
+                    available_points=0,
+                    lifetime_points=0,
+                    current_level=1,
+                    points_to_next_level=100,
                     current_streak=0,
                     longest_streak=0
                 )
-                db.add(user_streak)
-            
+                db.add(user_points)
+                initialized_objects += 1
+
+            level_result = await db.execute(
+                select(UserLevel).where(UserLevel.user_id == user_id)
+            )
+            user_level = level_result.scalar_one_or_none()
+
+            if not user_level:
+                user_level = UserLevel(
+                    user_id=user_id,
+                    current_level=1,
+                    current_xp=0,
+                    total_xp=0,
+                    xp_to_next_level=100,
+                    current_title="Aspiring PM"
+                )
+                db.add(user_level)
+                initialized_objects += 1
+
+            streak_types = [StreakType.DAILY_LOGIN, StreakType.LEARNING, StreakType.PROJECT_WORK]
+            streaks_created = 0
+
+            for streak_type in streak_types:
+                streak_exists_result = await db.execute(
+                    select(UserStreak).where(
+                        and_(
+                            UserStreak.user_id == user_id,
+                            UserStreak.streak_type == streak_type
+                        )
+                    )
+                )
+                streak_exists = streak_exists_result.scalar_one_or_none()
+
+                if not streak_exists:
+                    user_streak = UserStreak(
+                        user_id=user_id,
+                        streak_type=streak_type,
+                        current_streak=0,
+                        longest_streak=0
+                    )
+                    db.add(user_streak)
+                    streaks_created += 1
+
             await db.commit()
             
             return {
                 "message": "Gamification initialized successfully",
                 "user_id": user_id,
-                "initial_points": 0,
-                "initial_level": 1,
-                "streaks_initialized": len(streak_types)
+                "initial_points": user_points.total_points if user_points else 0,
+                "initial_level": user_level.current_level if user_level else 1,
+                "streaks_initialized": streaks_created
             }
             
         except Exception as e:
@@ -387,7 +416,9 @@ class GamificationService:
     ) -> ChallengeResponse:
         """Create a new challenge."""
         try:
-            challenge = Challenge(**challenge_data)
+            sanitized_data = challenge_data.copy()
+            sanitized_data.setdefault("status", ChallengeStatus.ACTIVE)
+            challenge = Challenge(**sanitized_data)
             db.add(challenge)
             await db.commit()
             await db.refresh(challenge)
@@ -412,8 +443,15 @@ class GamificationService:
             )
             challenge = challenge_result.scalar_one_or_none()
             
-            if not challenge or challenge.status != ChallengeStatus.ACTIVE:
-                raise ValueError("Challenge not found or not active")
+            if not challenge:
+                raise ValueError("Challenge not found")
+
+            if challenge.status != ChallengeStatus.ACTIVE:
+                now = datetime.now(timezone.utc)
+                if challenge.start_date and challenge.start_date <= now <= (challenge.end_date or now):
+                    challenge.status = ChallengeStatus.ACTIVE
+                else:
+                    raise ValueError("Challenge not found or not active")
             
             # Check if user already joined
             existing_result = await db.execute(
@@ -678,27 +716,83 @@ class GamificationService:
         self,
         db: AsyncSession,
         user_id: int,
-        badge_id: Optional[int] = None
-    ) -> List[UserBadgeResponse]:
-        """Get badge progress for a user."""
+        badge_id: Optional[int] = None,
+        badge_type: Optional[str] = None
+    ) -> List[BadgeProgressResponse]:
+        """Get badge progress for a user across active badges."""
         try:
-            query = select(UserBadge).options(
+            badge_query = select(Badge).where(Badge.is_active == True)
+
+            if badge_id:
+                badge_query = badge_query.where(Badge.id == badge_id)
+
+            if badge_type:
+                try:
+                    type_enum = BadgeType(badge_type)
+                    badge_query = badge_query.where(Badge.badge_type == type_enum)
+                except ValueError:
+                    # Unknown badge type filter; return empty result set
+                    return []
+
+            badge_result = await db.execute(badge_query.order_by(asc(Badge.created_at)))
+            badges = badge_result.scalars().all()
+
+            if not badges:
+                return []
+
+            badge_ids = [badge.id for badge in badges]
+
+            user_badge_query = select(UserBadge).options(
                 selectinload(UserBadge.badge)
             ).where(
                 and_(
                     UserBadge.user_id == user_id,
-                    UserBadge.is_completed == False
+                    UserBadge.badge_id.in_(badge_ids)
                 )
             )
-            
-            if badge_id:
-                query = query.where(UserBadge.badge_id == badge_id)
-            
-            result = await db.execute(query)
-            badges_in_progress = result.scalars().all()
-            
-            return [UserBadgeResponse.model_validate(ub) for ub in badges_in_progress]
-            
+
+            user_badge_result = await db.execute(user_badge_query)
+            user_badges = {ub.badge_id: ub for ub in user_badge_result.scalars().all()}
+
+            badge_progress: List[BadgeProgressResponse] = []
+
+            for badge in badges:
+                badge_response = BadgeResponse.model_validate(badge)
+                user_badge = user_badges.get(badge.id)
+
+                user_badge_response: Optional[UserBadgeResponse] = None
+                completion_percentage = 0.0
+                next_milestone: Optional[int] = None
+
+                if user_badge:
+                    user_badge_response = UserBadgeResponse.model_validate(user_badge)
+                    target = user_badge.target or 0
+                    if target > 0:
+                        completion_percentage = min(100.0, (user_badge.progress / target) * 100)
+                        if user_badge.progress < target:
+                            next_milestone = target
+                    else:
+                        completion_percentage = 100.0 if user_badge.is_completed else 0.0
+                else:
+                    # No progress record yet; surface target if encoded in criteria
+                    criteria_target = None
+                    if isinstance(badge.criteria, dict):
+                        criteria_target = badge.criteria.get("count") or badge.criteria.get("target")
+                    if isinstance(criteria_target, int) and criteria_target > 0:
+                        next_milestone = criteria_target
+
+                badge_progress.append(
+                    BadgeProgressResponse(
+                        badge=badge_response,
+                        user_progress=user_badge_response,
+                        completion_percentage=round(completion_percentage, 2),
+                        next_milestone=next_milestone,
+                        is_achievable=not badge.is_hidden
+                    )
+                )
+
+            return badge_progress
+
         except Exception as e:
             raise e
     
@@ -990,57 +1084,59 @@ class GamificationService:
         db: AsyncSession,
         user_id: int,
         week_offset: int = 0
-    ) -> Dict[str, Any]:
+    ) -> WeeklyChallengesSummary:
         """Get weekly challenges summary."""
         try:
             from datetime import timedelta
-            
-            # Calculate week start/end dates
+
             today = date.today()
             week_start = today - timedelta(days=today.weekday() + (week_offset * 7))
             week_end = week_start + timedelta(days=6)
-            
-            # Get challenges for the week
-            result = await db.execute(
-                select(Challenge).where(
-                    and_(
-                        Challenge.status == ChallengeStatus.ACTIVE,
-                        Challenge.start_date >= week_start,
-                        Challenge.start_date <= week_end
-                    )
+
+            challenge_query = select(Challenge).where(
+                and_(
+                    Challenge.status == ChallengeStatus.ACTIVE,
+                    Challenge.start_date <= week_end,
+                    Challenge.end_date >= week_start
                 )
             )
-            challenges = result.scalars().all()
-            
-            # Get user participations
-            participation_result = await db.execute(
-                select(GameChallengeParticipation).where(
+
+            challenge_result = await db.execute(challenge_query)
+            challenges = challenge_result.scalars().all()
+
+            challenge_ids = [challenge.id for challenge in challenges]
+
+            participations: List[GameChallengeParticipation] = []
+            if challenge_ids:
+                participation_query = select(GameChallengeParticipation).where(
                     and_(
                         GameChallengeParticipation.user_id == user_id,
-                        GameChallengeParticipation.challenge_id.in_([c.id for c in challenges])
+                        GameChallengeParticipation.challenge_id.in_(challenge_ids)
                     )
                 )
+                participation_result = await db.execute(participation_query)
+                participations = participation_result.scalars().all()
+
+            challenge_responses = [ChallengeResponse.model_validate(c) for c in challenges]
+            participation_responses = [
+                ChallengeParticipationResponse.model_validate(p) for p in participations
+            ]
+
+            completed_count = sum(1 for participation in participation_responses if participation.is_completed)
+            total_points_available = sum(c.points_reward for c in challenges)
+            total_points_earned = sum(p.points_earned for p in participations)
+
+            return WeeklyChallengesSummary(
+                week_start=week_start,
+                week_end=week_end,
+                total_challenges=len(challenge_responses),
+                active_challenges=[challenge for challenge in challenge_responses if challenge.status == ChallengeStatus.ACTIVE],
+                user_participations=participation_responses,
+                completed_count=completed_count,
+                total_points_available=total_points_available,
+                total_points_earned=total_points_earned
             )
-            participations = participation_result.scalars().all()
-            participation_map = {p.challenge_id: p for p in participations}
-            
-            return {
-                "week_start": week_start,
-                "week_end": week_end,
-                "total_challenges": len(challenges),
-                "completed_challenges": len([p for p in participations if p.is_completed]),
-                "active_challenges": len([p for p in participations if not p.is_completed]),
-                "challenges": [
-                    {
-                        **ChallengeResponse.model_validate(c).model_dump(),
-                        "participation": ChallengeParticipationResponse.model_validate(
-                            participation_map[c.id]
-                        ).model_dump() if c.id in participation_map else None
-                    }
-                    for c in challenges
-                ]
-            }
-            
+
         except Exception as e:
             raise e
     
@@ -1254,7 +1350,7 @@ class GamificationService:
         skip: int = 0,
         limit: int = 50,
         activity_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> ActivityFeedResponse:
         """Get user's gamification activity feed."""
         try:
             # Get point transactions as activity feed
@@ -1275,19 +1371,47 @@ class GamificationService:
             )
             recent_badges = badges_result.scalars().all()
             
-            return {
-                "transactions": [t.model_dump() for t in transactions],
-                "recent_badges": [
-                    {
-                        "badge_name": ub.badge.name,
-                        "badge_description": ub.badge.description,
-                        "earned_at": ub.earned_at,
-                        "rarity": ub.badge.rarity.value
+            activities = [
+                ActivityFeedItem(
+                    id=f"transaction-{transaction.id}",
+                    activity_type=transaction.source_type,
+                    title=f"Points Earned: {transaction.points}",
+                    description=transaction.description,
+                    points_earned=transaction.points,
+                    badge_earned=None,
+                    timestamp=transaction.created_at,
+                    metadata={
+                        "source_id": transaction.source_id,
+                        "balance_before": transaction.balance_before,
+                        "balance_after": transaction.balance_after
                     }
-                    for ub in recent_badges
-                ],
-                "total_activities": len(transactions) + len(recent_badges)
-            }
+                )
+                for transaction in transactions
+            ]
+
+            activities.extend(
+                ActivityFeedItem(
+                    id=f"badge-{user_badge.id}",
+                    activity_type="badge_earned",
+                    title=f"Badge Earned: {user_badge.badge.name}",
+                    description=user_badge.badge.description,
+                    points_earned=user_badge.points_earned,
+                    badge_earned=BadgeResponse.model_validate(user_badge.badge),
+                    timestamp=user_badge.earned_at or user_badge.updated_at,
+                    metadata={"rarity": user_badge.badge.rarity.value}
+                )
+                for user_badge in recent_badges
+            )
+
+            activities.sort(key=lambda item: item.timestamp, reverse=True)
+
+            return ActivityFeedResponse(
+                activities=activities,
+                total_count=len(activities),
+                page=(skip // limit) + 1,
+                per_page=limit,
+                has_more=len(activities) == limit
+            )
             
         except Exception as e:
             raise e
