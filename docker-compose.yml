@@ -1,5 +1,10 @@
 version: '3.8'
 
+
+# LOCAL DEVELOPMENT ONLY
+# This docker-compose file is for local development and testing only.
+# Production deployment uses Fly.io with Dockerfile.fly
+
 services:
   # FastAPI Application
   app:

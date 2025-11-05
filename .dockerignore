@@ -2,21 +2,34 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
 
 # Virtual environments
 venv/
 env/
+.venv/
+myenv/
+ENV/
+
+# Environment files
 .env
+.env.local
+.env.development
+.env.test
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-*
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Logs
 logs/
@@ -26,19 +39,30 @@ logs/
 .coverage
 .pytest_cache/
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
 
 # Database
 *.db
 *.sqlite3
+*.sqlite
 
 # Uploads and temporary files
 uploads/
+exports/
 temp/
 tmp/
+.tmp/
 
 # Git
 .git/
 .gitignore
+.gitattributes
+
+# GitHub
+.github/
 
 # Documentation
 docs/
@@ -48,5 +72,29 @@ docs/
 # Development files
 docker-compose.dev.yml
 docker-compose.prod.yml
+docker-compose.yml
 .env.example
-.env.local
+.env.production
+
+# Fly.io
+.fly/
+fly.toml.backup
+
+# Scripts
+scripts/
+
+# Testing
+tests/
+test_*.py
+*_test.py
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Backup files
+*.bak
+*.backup
+*~

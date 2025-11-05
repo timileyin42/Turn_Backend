@@ -1,7 +1,21 @@
 **/.env
+**/.env.*
+.env.local
+.env.production
+.env.development
 myenv/
 __pycache__/
 *.pyc
+
+# Doppler
+.doppler/
+doppler.yaml
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.token
 
 # Testing
 .pytest_cache/
