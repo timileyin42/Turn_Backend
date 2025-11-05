@@ -13,19 +13,14 @@ aiohttp==3.9.1
 # Database
 sqlalchemy==2.0.23
 asyncpg==0.29.0
-# psycopg2-binary==2.9.9
-# psycopg2-binary was commented out because prebuilt wheels may not
-# be available for newer Python versions (for example Python 3.13) and
-# pip will try to build from source requiring PostgreSQL's pg_config.
-# If you need psycopg2 (sync driver) on Windows, either:
-#  - Install PostgreSQL and add pg_config to your PATH before installing, or
-#  - Use a Python version with an available binary wheel, or
-#  - Re-enable this line if your environment already provides pg_config.
+psycopg2-binary==2.9.9  # Required for Alembic migrations
 alembic==1.12.1
 
 # Pydantic v2
 pydantic==2.5.0
 pydantic-settings==2.0.3
+email-validator==2.1.0  # Required by Pydantic for email validation
+typing-extensions>=4.8.0  # Required by Pydantic v2 for Python 3.11
 
 # Authentication
 python-jose[cryptography]==3.3.0

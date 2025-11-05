@@ -2,7 +2,8 @@
 Project simulation and AI coaching Pydantic v2 schemas.
 """
 from datetime import datetime
-from typing import Optional, Any, List, Dict, TypedDict
+from typing import Optional, Any, List, Dict
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field, ConfigDict, model_validator, EmailStr
 
 from app.database.project_models import (

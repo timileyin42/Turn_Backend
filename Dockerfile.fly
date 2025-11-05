@@ -61,11 +61,11 @@ RUN mkdir -p /app/logs /app/uploads /app/exports
 # Expose port (Fly.io will use PORT env variable)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+# Health check - Give app more time to start with Doppler
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application with Gunicorn for production
 # Using Uvicorn workers for async support
-# Doppler will inject environment variables at runtime
-CMD ["sh", "-c", "doppler run -- gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:8000 --timeout 120 --access-logfile - --error-logfile - --log-level info"]
+# Doppler will inject environment variables at runtime using the DOPPLER_TOKEN
+CMD ["sh", "-c", "exec doppler run --token=${DOPPLER_TOKEN} -- gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:8000 --timeout 120 --access-logfile - --error-logfile - --log-level info"]
